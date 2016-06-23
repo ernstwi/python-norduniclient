@@ -5,7 +5,7 @@ Created on Thu Oct 13 16:36:31 2011
 @author: lundberg
 """
 
-from neo4j import IntegrityError, ProgrammingError, InternalError
+from neo4j import IntegrityError, ProgrammingError, InternalError, OperationalError
 from socket import error as SocketError
 import core
 

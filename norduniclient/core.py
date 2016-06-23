@@ -22,20 +22,26 @@ from __future__ import absolute_import
 import re
 from neo4j import contextmanager
 
-from . import exceptions
-from . import helpers
-from . import models
+from norduniclient import exceptions
+from norduniclient import helpers
+from norduniclient import models
+
+import logging
+logger = logging.getLogger(__name__)
 
 # Load Django settings
 try:
     from django.core.exceptions import ImproperlyConfigured
     from django.conf import settings as django_settings
-    NEO4J_URI = django_settings.NEO4J_RESOURCE_URI
-except (ImportError, ImproperlyConfigured):
+    try:
+        NEO4J_URI = django_settings.NEO4J_RESOURCE_URI
+    except ImproperlyConfigured:
+        NEO4J_URI = None
+except ImportError:
     NEO4J_URI = None
-    print 'Starting up without a Django environment.'
-    print 'Initial: norduniclient.neo4jdb == None.'
-    print 'Use norduniclient.init_db(uri) to open a database connection.'
+    logger.info('Starting up without a Django environment.')
+    logger.info('Initial: norduniclient.neo4jdb == None.')
+    logger.info('Use norduniclient.init_db(uri) to open a database connection.')
 
 
 META_TYPES = ['Physical', 'Logical', 'Relation', 'Location']
@@ -57,8 +63,8 @@ def init_db(uri=NEO4J_URI):
                 pass
             return manager
         except exceptions.SocketError as e:
-            print 'Could not connect to Neo4j database:'
-            print e
+            logger.error('Could not connect to Neo4j database: {!s}'.format(uri))
+            raise e
 
 
 def _get_db_manager(uri):
@@ -102,10 +108,18 @@ def create_node(manager, name, meta_type_label, type_label, handle_id):
     """
     Creates a node with the mandatory attributes name and handle_id also sets type label.
 
-    :param manager: Neo4jDBConnectionManager
-    :param name: string
-    :param type_label: string
+    :param manager: Context manager to handle transactions
+    :param name: Node name
+    :param meta_type_label: Node meta type
+    :param type_label: Node label
     :param handle_id: Unique id
+
+    :type manager: Neo4jDBConnectionManager
+    :type name: str|unicode
+    :type meta_type_label: str|unicode
+    :type type_label: str|unicode
+    :type handle_id: str|unicode
+
     :return: None
     """
     if meta_type_label not in META_TYPES:
@@ -120,7 +134,7 @@ def create_node(manager, name, meta_type_label, type_label, handle_id):
 
 def get_node(manager, handle_id):
     """
-     :param manager: Neo4jDBConnectionManager
+    :param manager: Neo4jDBConnectionManager
     :param handle_id: Unique id
     :return: dict
     """
@@ -335,7 +349,7 @@ def get_unique_node_by_name(manager, node_name, node_type):
 
     :param manager:  Neo4jDBConnectionManager
     :param node_name: string
-    :param node_type: string
+    :param node_type: str|unicode
     :return: norduniclient node model or None
     """
     q = '''
@@ -353,6 +367,18 @@ def get_unique_node_by_name(manager, node_name, node_type):
 
 
 def _create_relationship(manager, handle_id, other_handle_id, rel_type):
+    """
+    :param manager: Context manager to handle transactions
+    :type manager: Neo4jDBConnectionManager
+    :param handle_id: Node handle id
+    :type handle_id: str|unicode
+    :param other_handle_id: Other node handle id
+    :type other_handle_id: str|unicode
+    :param rel_type: Relationship type
+    :type rel_type: str|unicode
+    :return: Relationship id
+    :rtype: int
+    """
 
     q = """
         MATCH (a:Node {handle_id: {start}}),(b:Node {handle_id: {end}})
