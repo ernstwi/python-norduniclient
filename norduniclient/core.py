@@ -333,6 +333,7 @@ def get_nodes_by_name(manager, name):
 
 def legacy_node_index_search(manager, lucene_query):
     """
+    :param manager: Neo4jDBConnectionManager
     :param lucene_query: string
     :return: dict
     """
@@ -347,7 +348,7 @@ def get_unique_node_by_name(manager, node_name, node_type):
     """
     Returns the node if the node is unique for name and type or None.
 
-    :param manager:  Neo4jDBConnectionManager
+    :param manager: Neo4jDBConnectionManager
     :param node_name: string
     :param node_type: str|unicode
     :return: norduniclient node model or None

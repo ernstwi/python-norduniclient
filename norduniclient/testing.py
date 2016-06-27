@@ -41,7 +41,7 @@ class Neo4jTemporaryInstance(object):
                                          stderr=subprocess.STDOUT)
         self._host = 'http://localhost'
 
-        for i in range(10):
+        for i in range(100):
             time.sleep(0.2)
             try:
                 self._db = init_db('{!s}:{!s}'.format(self._host, self._port))
