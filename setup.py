@@ -13,7 +13,7 @@ testing_requires = [
 ]
 
 setup(
-    name='python-norduniclient',
+    name='norduniclient',
     version=version,
     url='https://github.com/NORDUnet/python-norduniclient',
     license='',
