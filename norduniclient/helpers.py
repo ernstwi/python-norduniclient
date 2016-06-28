@@ -1,8 +1,6 @@
 # -*- coding: utf-8 -*-
 __author__ = 'lundberg'
 
-import json
-
 
 def normalize_whitespace(s):
     """
@@ -28,22 +26,21 @@ def update_item_properties(item_properties, new_properties):
     return item_properties
 
 
-def merge_properties(item_properties, prop_name, new_value):
+# TODO: Does this helper make any sense?
+def merge_properties(item_properties, prop_name, merge_value):
     """
     Tries to figure out which type of property value that should be merged and
     invoke the right function.
-    Returns True if the merge was successful otherwise False.
+    Returns new properties if the merge was successful otherwise False.
     """
     existing_value = item_properties.get(prop_name, None)
     if not existing_value:  # A node without existing values for the property
-        item_properties[prop_name] = new_value
+        item_properties[prop_name] = merge_value
     else:
-        if type(new_value) is int:
-            item_properties[prop_name] = existing_value + new_value
-        elif type(new_value) is str:
-            return False  # Not implemented yet
-        elif type(new_value) is list:
-            item_properties[prop_name] = merge_list(existing_value, new_value)
+        if type(merge_value) is int or type(merge_value) is str:
+            item_properties[prop_name] = existing_value + merge_value
+        elif type(merge_value) is list:
+            item_properties[prop_name] = merge_list(existing_value, merge_value)
         else:
             return False
     return item_properties

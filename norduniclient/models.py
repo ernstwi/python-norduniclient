@@ -1,9 +1,10 @@
 # -*- coding: utf-8 -*-
-__author__ = 'lundberg'
 
 from functools import total_ordering
 from collections import defaultdict
 import core
+
+__author__ = 'lundberg'
 
 
 @total_ordering
@@ -142,10 +143,10 @@ class BaseNodeModel(object):
         q = """
             MATCH (n:Node {{handle_id: {{handle_id}}}})
             SET n:{label}
-            """.format(old_meta_type=self.meta_type, label=label)
+            """.format(label=label)
         with self.manager.transaction as t:
             t.execute(q, handle_id=self.handle_id).fetchall()
-        return True
+        return core.get_node_model(self.manager, self.handle_id)
 
     def remove_label(self, label):
         q = """
@@ -154,7 +155,7 @@ class BaseNodeModel(object):
             """.format(old_meta_type=self.meta_type, label=label)
         with self.manager.transaction as t:
             t.execute(q, handle_id=self.handle_id).fetchall()
-        return True
+        return core.get_node_model(self.manager, self.handle_id)
 
     def change_meta_type(self, meta_type):
         if meta_type not in core.META_TYPES:
@@ -174,6 +175,9 @@ class BaseNodeModel(object):
 
     def delete(self):
         core.delete_node(self.manager, self.handle_id)
+
+    def reload(self):
+        return core.get_node_model(self.manager, self.handle_id)
 
 
 class CommonQueries(BaseNodeModel):

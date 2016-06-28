@@ -95,13 +95,8 @@ class Neo4jTestCase(unittest.TestCase):
     """
 
     neo4j_instance = Neo4jTemporaryInstance.get_instance()
-
-    def setUp(self):
-        self.neo4jdb = self.neo4j_instance.db
+    neo4jdb = neo4j_instance.db
 
     def tearDown(self):
         self.neo4j_instance.purge_db()
 
-    @classmethod
-    def tearDownClass(cls):
-        cls.neo4j_instance.shutdown()
