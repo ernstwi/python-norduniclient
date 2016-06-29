@@ -523,6 +523,14 @@ def set_relationship_properties(manager, relationship_id, new_properties):
 
 
 def get_node_model(manager, handle_id):
+    """
+    :param manager: Context manager to handle transactions
+    :type manager: Neo4jDBConnectionManager
+    :param handle_id: Nodes handle id
+    :type handle_id: str|unicode
+    :return: Node model
+    :rtype: models.BaseNodeModel or sub class of models.BaseNodeModel
+    """
     bundle = get_node_bundle(manager, handle_id)
     for label in bundle.get('labels'):
         try:

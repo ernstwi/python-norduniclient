@@ -21,7 +21,7 @@ setup(
     author_email='lundberg@nordu.net',
     description='Neo4j database client for NORDUnet network inventory',
     packages=find_packages(),
-    zip_safe=False,
+    zip_safe=True,
     install_requires=requires,
     tests_require=testing_requires,
     test_suite="norduniclient",

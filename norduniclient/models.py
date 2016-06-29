@@ -829,6 +829,18 @@ class ServiceModel(LogicalModel):
         return self._basic_read_query_to_dict(q)
 
 
+class OpticalPathModel(LogicalModel):
+    pass
+
+
+class OpticalMultiplexSection(LogicalModel):
+    pass
+
+
+class OpticalLinkModel(LogicalModel):
+    pass
+
+
 class ExternalEquipmentModel(EquipmentModel):
     pass
 
@@ -836,8 +848,10 @@ class ExternalEquipmentModel(EquipmentModel):
 class ODFModel(EquipmentModel):
     pass
 
+
 class OpticalFilterModel(EquipmentModel):
     pass
+
 
 class SwitchModel(EquipmentModel, HostModel):
     pass
@@ -857,3 +871,12 @@ class PICModel(SubEquipmentModel):
 
 class FPCModel(SubEquipmentModel):
     pass
+
+
+class CustomerModel(RelationModel):
+    pass
+
+
+class ProviderModel(RelationModel):
+    pass
+
