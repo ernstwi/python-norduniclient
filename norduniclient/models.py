@@ -317,6 +317,28 @@ class PhysicalModel(CommonQueries):
             """
         return self._basic_read_query_to_dict(q)
 
+    def get_location_path(self):
+        q = """
+            MATCH (n:Node {handle_id: {handle_id}})-[:Located_in]->(r)
+            MATCH p=()-[:Has*0..20]->(r)
+            WITH COLLECT(nodes(p)) as paths, MAX(length(nodes(p))) AS maxLength
+            WITH FILTER(path IN paths WHERE length(path)=maxLength) AS longestPaths
+            UNWIND(longestPaths) as location_path
+            RETURN location_path
+            """
+        return core.query_to_dict(self.manager, q, handle_id=self.handle_id)
+
+    def get_placement_path(self):
+        q = """
+            MATCH (n:Node {handle_id: {handle_id}})<-[:Has]-(parent)
+            OPTIONAL MATCH p=()-[:Has*0..20]->(parent)
+            WITH COLLECT(nodes(p)) as paths, MAX(length(nodes(p))) AS maxLength
+            WITH FILTER(path IN paths WHERE length(path)=maxLength) AS longestPaths
+            UNWIND(longestPaths) as placement_path
+            RETURN placement_path
+            """
+        return core.query_to_dict(self.manager, q, handle_id=self.handle_id)
+
     def set_owner(self, owner_handle_id):
         q = """
             MATCH (n:Node {handle_id: {handle_id}}), (owner:Node {handle_id: {owner_handle_id}})
@@ -480,17 +502,6 @@ class RelationModel(CommonQueries):
 
 class EquipmentModel(PhysicalModel):
 
-    def get_location_path(self):
-        q = """
-            MATCH (n:Node {handle_id: {handle_id}})-[:Located_in]->(r)
-            MATCH p=()-[:Has*0..20]->(r)
-            WITH COLLECT(nodes(p)) as paths, MAX(length(nodes(p))) AS maxLength
-            WITH FILTER(path IN paths WHERE length(path)=maxLength) AS longestPaths
-            UNWIND(longestPaths) as location_path
-            RETURN location_path
-            """
-        return core.query_to_dict(self.manager, q, handle_id=self.handle_id)
-
     def get_ports(self):
         q = """
             MATCH (n:Node {handle_id: {handle_id}})-[r:Has]->(port:Port)
@@ -547,17 +558,6 @@ class SubEquipmentModel(PhysicalModel):
             WITH FILTER(path IN paths WHERE length(path)=maxLength) AS longestPaths
             UNWIND(longestPaths) as location_path
             RETURN location_path
-            """
-        return core.query_to_dict(self.manager, q, handle_id=self.handle_id)
-
-    def get_placement_path(self):
-        q = """
-            MATCH (n:Node {handle_id: {handle_id}})<-[:Has]-(parent)
-            OPTIONAL MATCH p=()-[:Has*0..20]->(parent)
-            WITH COLLECT(nodes(p)) as paths, MAX(length(nodes(p))) AS maxLength
-            WITH FILTER(path IN paths WHERE length(path)=maxLength) AS longestPaths
-            UNWIND(longestPaths) as placement_path
-            RETURN placement_path
             """
         return core.query_to_dict(self.manager, q, handle_id=self.handle_id)
 
@@ -650,13 +650,13 @@ class PortModel(SubEquipmentModel):
 
     def get_connection_path(self):
         q = """
-            MATCH (n:Port {handle_id: {handle_id}})-[:Connected_to*0..10]-(port:Port)
+            MATCH (n:Port {handle_id: {handle_id}})-[:Connected_to*0..20]-(port:Port)
             OPTIONAL MATCH path=(port)-[:Connected_to*]-()
             WITH nodes(path) AS parts, length(path) AS len
             ORDER BY len DESC
             LIMIT 1
             UNWIND parts AS part
-            OPTIONAL MATCH (part)<-[:Has*1..10]-(parent)
+            OPTIONAL MATCH (part)<-[:Has*1..20]-(parent)
             WHERE NOT (parent)<-[:Has]-()
             RETURN part, parent
             """
@@ -669,9 +669,9 @@ class OpticalNodeModel(EquipmentModel):
 
 class RouterModel(EquipmentModel):
 
-    def get_child_form_data(self, node_type):
+    def get_child_form_data(self, node_type=None):
         if node_type:
-            type_filter = ':{node_type}'.format(node_type)
+            type_filter = ':{node_type}'.format(node_type=node_type)
         else:
             type_filter = ':Port'
         q = """
