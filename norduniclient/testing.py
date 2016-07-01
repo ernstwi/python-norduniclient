@@ -9,13 +9,15 @@ import random
 import subprocess
 import base64
 import json
+from socket import error as SocketError
+
 try:
     from http import client as http
 except ImportError:
     import httplib as http
 
 from norduniclient.core import init_db
-from norduniclient.exceptions import SocketError, OperationalError
+
 
 
 __author__ = 'lundberg'
@@ -30,6 +32,8 @@ class Neo4jTemporaryInstance(object):
 
     """
     _instance = None
+    _http_port = None
+    _bolt_port = None
 
     DEFAULT_USERNAME = 'neo4j'
     DEFAULT_PASSWORD = 'neo4j'
@@ -42,10 +46,13 @@ class Neo4jTemporaryInstance(object):
         return cls._instance
 
     def __init__(self):
-        self._port = random.randint(40000, 50000)
-        self._docker_name = 'neo4j-{!s}'.format(self.port)
+        while self._http_port == self._bolt_port:
+            self._http_port = random.randint(40000, 50000)
+            self._bolt_port = random.randint(40000, 50000)
+        self._docker_name = 'neo4j-{!s}'.format(self.bolt_port)
         self._process = subprocess.Popen(['docker', 'run', '--rm', '--name', '{!s}'.format(self._docker_name),
-                                          '-p', '{!s}:7474'.format(self.port),
+                                          '-p', '{!s}:7474'.format(self.http_port),
+                                          '-p', '{!s}:7687'.format(self.bolt_port),
                                           'docker.sunet.se/library/neo4j:3.0'],
                                          stdout=open('/tmp/neo4j-temp.log', 'wb'),
                                          stderr=subprocess.STDOUT)
@@ -55,9 +62,9 @@ class Neo4jTemporaryInstance(object):
             time.sleep(0.2)
             try:
                 if self.change_password():
-                    self._db = init_db('http://{!s}:{!s}'.format(self.host, self.port), username='neo4j',
-                                       password='testing')
-            except (SocketError, OperationalError):
+                    self._db = init_db('bolt://{!s}:{!s}'.format(self.host, self.bolt_port), username='neo4j',
+                                       password='testing', encrypted=False)
+            except SocketError:
                 continue
             else:
                 break
@@ -74,8 +81,12 @@ class Neo4jTemporaryInstance(object):
         return self._host
 
     @property
-    def port(self):
-        return self._port
+    def http_port(self):
+        return self._http_port
+
+    @property
+    def bolt_port(self):
+        return self._bolt_port
 
     def purge_db(self):
         q = """
@@ -83,8 +94,8 @@ class Neo4jTemporaryInstance(object):
             OPTIONAL MATCH (n)-[r]-()
             DELETE n,r
             """
-        with self.db.transaction as t:
-            t.execute(q).fetchall()
+        session = self.db.session()
+        session.run(q)
 
     def change_password(self, new_password='testing'):
         """
@@ -106,9 +117,9 @@ class Neo4jTemporaryInstance(object):
         retry = 0
         while not response:  # Retry if the server is not ready yet
             time.sleep(1)
-            con = http.HTTPConnection('{!s}:{!s}'.format(self.host, self.port), timeout=10)
+            con = http.HTTPConnection('{!s}:{!s}'.format(self.host, self.http_port), timeout=10)
             try:
-                con.request('GET', 'http://{!s}:{!s}/user/{!s}'.format(self.host, self.port, self.DEFAULT_USERNAME),
+                con.request('GET', 'http://{!s}:{!s}/user/{!s}'.format(self.host, self.http_port, self.DEFAULT_USERNAME),
                             headers=headers)
                 response = json.loads(con.getresponse().read().decode('utf-8'))
             except ValueError:
@@ -121,7 +132,7 @@ class Neo4jTemporaryInstance(object):
         if response and response.get('password_change_required'):
             payload = json.dumps({'password': new_password})
             con.request('POST', 'http://{!s}:{!s}/user/{!s}/password'.format(
-                self._host, self._port, self.DEFAULT_USERNAME), payload, headers)
+                self.host, self.http_port, self.DEFAULT_USERNAME), payload, headers)
             con.close()
         return True
 

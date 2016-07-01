@@ -2,15 +2,15 @@
 #
 #       core.py
 #
-#       Copyright 2011 Johan Lundberg <lundberg@nordu.net>
+#       Copyright 2016 Johan Lundberg <lundberg@nordu.net>
 #
 
 # This started as an extension to the Neo4j REST client made by Versae, continued
 # as an extension for the official Neo4j python bindings when they were released
 # (Neo4j 1.5, python-embedded).
 #
-# After the python-embedded drivers where discontinued with Neo4j 2.0 we are now
-# using neo4jdb-python transaction endpoint drivers.
+# After the release of neo4j 3.0 and the bolt protocol we replaced neo4jdb-python with
+# the official Neo4j driver.
 #
 # The goal is to make it easier to add and retrieve data from a Neo4j database
 # according to the NORDUnet Network Inventory data model.
@@ -19,8 +19,9 @@
 # https://portal.nordu.net/display/NI/
 
 from __future__ import absolute_import
+
 import re
-from neo4j import contextmanager
+from neo4j.v1 import GraphDatabase, basic_auth
 
 from norduniclient import exceptions
 from norduniclient import helpers
@@ -47,28 +48,38 @@ except ImportError:
 META_TYPES = ['Physical', 'Logical', 'Relation', 'Location']
 
 
-def init_db(uri=NEO4J_URI, username=None, password=None):
+def init_db(uri=NEO4J_URI, username=None, password=None, encrypted=True):
     if uri:
         try:
-            manager = _get_db_manager(uri, username, password)
+            driver = _get_db_driver(uri, username, password, encrypted)
+            session = driver.session()
             try:
-                with manager.transaction as w:
-                    w.execute('CREATE CONSTRAINT ON (n:Node) ASSERT n.handle_id IS UNIQUE').fetchall()
-            except exceptions.IntegrityError:
-                pass
+                session.run('CREATE CONSTRAINT ON (n:Node) ASSERT n.handle_id IS UNIQUE')
+            except Exception as e:
+                raise e
             try:
-                with manager.transaction as w:
-                    w.execute('CREATE INDEX ON :Node(name)').fetchall()
-            except exceptions.IntegrityError:
-                pass
-            return manager
-        except exceptions.SocketError as e:
+                session.run('CREATE INDEX ON :Node(name)')
+            except Exception as e:
+                raise e
+            session.close()
+            return driver
+        except Exception as e:
             logger.error('Could not connect to Neo4j database: {!s}'.format(uri))
             raise e
 
 
-def _get_db_manager(uri, username=None, password=None):
-    return contextmanager.Neo4jDBConnectionManager(uri, username, password)
+def _get_db_driver(uri, username=None, password=None, encrypted=True):
+    """
+    :param uri: Bolt uri
+    :type uri: str
+    :param username: Neo4j username
+    :type username: str
+    :param password: Neo4j password
+    :type password: str
+    :return: Neo4j driver
+    :rtype: neo4j.v1.session.Driver
+    """
+    return GraphDatabase.driver(uri, auth=basic_auth(username, password), encrypted=encrypted)
 
 
 def query_to_dict(manager, query, **kwargs):
@@ -104,17 +115,17 @@ def query_to_iterator(manager, query, **kwargs):
             yield d
 
 
-def create_node(manager, name, meta_type_label, type_label, handle_id):
+def create_node(session, name, meta_type_label, type_label, handle_id):
     """
     Creates a node with the mandatory attributes name and handle_id also sets type label.
 
-    :param manager: Context manager to handle transactions
+    :param session: Session to handle transactions
     :param name: Node name
     :param meta_type_label: Node meta type
     :param type_label: Node label
     :param handle_id: Unique id
 
-    :type manager: Neo4jDBConnectionManager
+    :type session: neo4j.v1.session.Session|neo4j.v1.session.Transaction
     :type name: str|unicode
     :type meta_type_label: str|unicode
     :type type_label: str|unicode
@@ -128,22 +139,23 @@ def create_node(manager, name, meta_type_label, type_label, handle_id):
         CREATE (n:Node:%s:%s { name: { name }, handle_id: { handle_id }})
         RETURN n
         """ % (meta_type_label, type_label)
-    with manager.transaction as w:
-        return w.execute(q, name=name, handle_id=handle_id).fetchall()[0][0]
+    return session.run(q, {'name': name, 'handle_id': handle_id})
 
 
-def get_node(manager, handle_id):
+def get_node(session, handle_id):
     """
-    :param manager: Neo4jDBConnectionManager
+    :param session: Session to handle transactions
     :param handle_id: Unique id
+
+    :type session: neo4j.v1.session.Session|neo4j.v1.session.Transaction
+    :type handle_id: str
     :return: dict
     """
     q = 'MATCH (n:Node { handle_id: {handle_id} }) RETURN n'
     try:
-        with manager.read as r:
-            return r.execute(q, handle_id=handle_id).fetchall()[0][0]
+        session.run(q, {'handle_id': handle_id})
     except IndexError:
-        raise exceptions.NodeNotFound(manager, handle_id)
+        raise exceptions.NodeNotFound(session, handle_id)
 
 
 def get_node_bundle(manager, handle_id):
