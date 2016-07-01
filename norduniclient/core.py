@@ -198,7 +198,7 @@ def get_relationship(manager, relationship_id):
     try:
         with manager.read as r:
             return r.execute(q, relationship_id=relationship_id).fetchall()[0][0]
-    except exceptions.InternalError:
+    except exceptions.ProgrammingError:
         raise exceptions.RelationshipNotFound(manager, relationship_id)
 
 
@@ -232,7 +232,7 @@ def delete_relationship(manager, relationship_id):
     try:
         with manager.transaction as t:
             t.execute(q, relationship_id=relationship_id).fetchall()
-    except exceptions.InternalError:
+    except exceptions.ProgrammingError:
         raise exceptions.RelationshipNotFound(manager, relationship_id)
     return True
 

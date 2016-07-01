@@ -3,7 +3,7 @@ from setuptools import setup, find_packages
 version = '0.1.1'
 
 requires = [
-    'neo4jdb==0.0.8',
+    'neo4jdb==0.0.9',
 ]
 
 testing_requires = [

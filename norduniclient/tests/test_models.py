@@ -599,7 +599,7 @@ class ModelsTests(Neo4jTestCase):
     def test_get_connected_to_port_model(self):
         port4 = core.get_node_model(self.neo4jdb, handle_id='24')
         connected_to = port4.get_connected_to()
-        self.assertEqual(connected_to['Connected_to'][0]['node'].handle_id, '28')
+        self.assertIn(connected_to['Connected_to'][0]['node'].handle_id, ['28', '30'])
 
     def test_get_connection_path_port_model(self):
         port4 = core.get_node_model(self.neo4jdb, handle_id='24')

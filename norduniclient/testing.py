@@ -11,9 +11,7 @@ import base64
 import json
 try:
     from http import client as http
-    from urllib.request import urlretrieve
 except ImportError:
-    from urllib import urlretrieve
     import httplib as http
 
 from norduniclient.core import init_db
@@ -35,7 +33,6 @@ class Neo4jTemporaryInstance(object):
 
     DEFAULT_USERNAME = 'neo4j'
     DEFAULT_PASSWORD = 'neo4j'
-    TESTING_PASSWORD = 'testing'
 
     @classmethod
     def get_instance(cls):
@@ -48,17 +45,18 @@ class Neo4jTemporaryInstance(object):
         self._port = random.randint(40000, 50000)
         self._docker_name = 'neo4j-{!s}'.format(self.port)
         self._process = subprocess.Popen(['docker', 'run', '--rm', '--name', '{!s}'.format(self._docker_name),
-                                          '-p', '{!s}:7474'.format(self._port),
+                                          '-p', '{!s}:7474'.format(self.port),
                                           'docker.sunet.se/library/neo4j:2.2.8'],
                                          stdout=open('/tmp/neo4j-temp.log', 'wb'),
                                          stderr=subprocess.STDOUT)
-        self._host = 'http://localhost'
+        self._host = 'localhost'
 
         for i in range(100):
             time.sleep(0.2)
             try:
-                self.change_password()
-                self._db = init_db('{!s}:{!s}'.format(self._host, self._port), username='neo4j', password='testing')
+                if self.change_password():
+                    self._db = init_db('http://{!s}:{!s}'.format(self.host, self.port), username='neo4j',
+                                       password='testing')
             except (SocketError, OperationalError):
                 continue
             else:
@@ -88,7 +86,7 @@ class Neo4jTemporaryInstance(object):
         with self.db.transaction as t:
             t.execute(q).fetchall()
 
-    def change_password(self):
+    def change_password(self, new_password='testing'):
         """
         Changes the standard password from neo4j to testing to be able to run the test suite.
         """
@@ -108,33 +106,28 @@ class Neo4jTemporaryInstance(object):
         retry = 0
         while not response:  # Retry if the server is not ready yet
             time.sleep(1)
-            con = http.HTTPConnection('{!s}:{!s}'.format(self._host, self._port), timeout=10)
+            con = http.HTTPConnection('{!s}:{!s}'.format(self.host, self.port), timeout=10)
             try:
-                con.request('GET', '{!s}:{!s}/user/neo4j'.format(self._host, self._port), headers=headers)
+                con.request('GET', 'http://{!s}:{!s}/user/{!s}'.format(self.host, self.port, self.DEFAULT_USERNAME),
+                            headers=headers)
                 response = json.loads(con.getresponse().read().decode('utf-8'))
             except ValueError:
                 con.close()
             retry += 1
             if retry > 10:
                 print("Could not change password for user neo4j")
-                break
-        if response and response.get('password_change_required', None):
-            payload = json.dumps({'password': self.TESTING_PASSWORD})
-            con.request('POST', '{!s}:{!s}/user/neo4j/password'.format(self._host, self._port), payload, headers)
-
-        con.close()
+                con.close()
+                return False
+        if response and response.get('password_change_required'):
+            payload = json.dumps({'password': new_password})
+            con.request('POST', 'http://{!s}:{!s}/user/{!s}/password'.format(
+                self._host, self._port, self.DEFAULT_USERNAME), payload, headers)
+            con.close()
+        return True
 
     def shutdown(self):
         if self._process:
-            # Due to the official neo4j container running the neo4j process with PID 1 the process can't be
-            # stopped the usual way
-            stop_proc = subprocess.Popen(['docker', 'stop', self._docker_name],
-                                         stdout=open('/tmp/neo4j-temp.log', 'wb'),
-                                         stderr=subprocess.STDOUT)
-            print('Stopping neo4j docker container...')
-            stop_proc.wait()
-            print('Neo4j docker container stopped.')
-            self._process.kill()
+            self._process.terminate()
             self._process.wait()
             self._process = None
 
