@@ -273,28 +273,24 @@ def get_nodes_by_value(manager, value, prop=None, node_type=None):
     if not node_type:
         node_type = 'Node'
     if prop:
-        q = '''
-            MATCH (n:{label})
-            USING SCAN n:{label}
-            WHERE n.{prop} =~ "(?i).*{value}.*"
-            RETURN distinct n
-            '''.format(label=node_type, prop=prop, value=value)
-        try:
-            with manager.read as r:
-                for node, in r.execute(q):
-                    yield node
-        except exceptions.ProgrammingError:  # Can't do regex on int. bool or lists
+        if isinstance(value, basestring):
             q = '''
                 MATCH (n:{label})
                 USING SCAN n:{label}
-                WHERE HAS(n.{prop})
-                RETURN n
-                '''.format(label=node_type, prop=prop)
-            pattern = re.compile('.*{0}.*'.format(value), re.IGNORECASE)
-            with manager.read as r:
-                for node, in r.execute(q):
-                    if pattern.match(unicode(node.get(prop, None))):
-                        yield node
+                WHERE n.{prop} =~ "(?i).*{value}.*"
+                RETURN distinct n
+                '''.format(label=node_type, prop=prop, value=value)
+        else:
+            q = '''
+                MATCH (n:{label})
+                USING SCAN n:{label}
+                WHERE n.{prop} = {value}
+                RETURN distinct n
+                '''.format(label=node_type, prop=prop, value=value)
+
+        with manager.read as r:
+            for node, in r.execute(q):
+                yield node
     else:
         q = '''
             MATCH (n:{label})

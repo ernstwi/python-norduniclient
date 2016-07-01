@@ -328,6 +328,24 @@ class CoreTests(Neo4jTestCase):
             return
         self.assertTrue(False, 'Nothing found')
 
+    def test_get_nodes_by_value_and_property_bool(self):
+        new_properties = {'test': False}
+        core.set_node_properties(self.neo4jdb, handle_id='1', new_properties=new_properties)
+        result = core.get_nodes_by_value(self.neo4jdb, value=False, prop='test')
+        for node in result:
+            self.assertEqual(node.get('test'), False)
+            return
+        self.assertTrue(False, 'Nothing found')
+
+    def test_get_nodes_by_value_and_property_int(self):
+        new_properties = {'test': 3}
+        core.set_node_properties(self.neo4jdb, handle_id='1', new_properties=new_properties)
+        result = core.get_nodes_by_value(self.neo4jdb, value=3, prop='test')
+        for node in result:
+            self.assertEqual(node.get('test'), 3)
+            return
+        self.assertTrue(False, 'Nothing found')
+
     def test_get_nodes_by_type(self):
         result = core.get_nodes_by_type(self.neo4jdb, 'Test_Node')
         for node in result:
