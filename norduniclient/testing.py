@@ -7,6 +7,15 @@ import time
 import atexit
 import random
 import subprocess
+import base64
+import json
+try:
+    from http import client as http
+    from urllib.request import urlretrieve
+except ImportError:
+    from urllib import urlretrieve
+    import httplib as http
+
 from norduniclient.core import init_db
 from norduniclient.exceptions import SocketError, OperationalError
 
@@ -24,6 +33,10 @@ class Neo4jTemporaryInstance(object):
     """
     _instance = None
 
+    DEFAULT_USERNAME = 'neo4j'
+    DEFAULT_PASSWORD = 'neo4j'
+    TESTING_PASSWORD = 'testing'
+
     @classmethod
     def get_instance(cls):
         if cls._instance is None:
@@ -36,7 +49,7 @@ class Neo4jTemporaryInstance(object):
         self._docker_name = 'neo4j-{!s}'.format(self.port)
         self._process = subprocess.Popen(['docker', 'run', '--rm', '--name', '{!s}'.format(self._docker_name),
                                           '-p', '{!s}:7474'.format(self._port),
-                                          'docker.sunet.se/library/neo4j:2.1.8'],
+                                          'docker.sunet.se/library/neo4j:2.2.8'],
                                          stdout=open('/tmp/neo4j-temp.log', 'wb'),
                                          stderr=subprocess.STDOUT)
         self._host = 'http://localhost'
@@ -44,7 +57,8 @@ class Neo4jTemporaryInstance(object):
         for i in range(100):
             time.sleep(0.2)
             try:
-                self._db = init_db('{!s}:{!s}'.format(self._host, self._port))
+                self.change_password()
+                self._db = init_db('{!s}:{!s}'.format(self._host, self._port), username='neo4j', password='testing')
             except (SocketError, OperationalError):
                 continue
             else:
@@ -73,6 +87,42 @@ class Neo4jTemporaryInstance(object):
             """
         with self.db.transaction as t:
             t.execute(q).fetchall()
+
+    def change_password(self):
+        """
+        Changes the standard password from neo4j to testing to be able to run the test suite.
+        """
+        basic_auth = '%s:%s' % (self.DEFAULT_USERNAME, self.DEFAULT_PASSWORD)
+        try:  # Python 2
+            auth = base64.encodestring(basic_auth)
+        except TypeError:  # Python 3
+            auth = base64.encodestring(bytes(basic_auth, 'utf-8')).decode()
+
+        headers = {
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+            "Authorization": "Basic %s" % auth.strip()
+        }
+
+        response = None
+        retry = 0
+        while not response:  # Retry if the server is not ready yet
+            time.sleep(1)
+            con = http.HTTPConnection('{!s}:{!s}'.format(self._host, self._port), timeout=10)
+            try:
+                con.request('GET', '{!s}:{!s}/user/neo4j'.format(self._host, self._port), headers=headers)
+                response = json.loads(con.getresponse().read().decode('utf-8'))
+            except ValueError:
+                con.close()
+            retry += 1
+            if retry > 10:
+                print("Could not change password for user neo4j")
+                break
+        if response and response.get('password_change_required', None):
+            payload = json.dumps({'password': self.TESTING_PASSWORD})
+            con.request('POST', '{!s}:{!s}/user/neo4j/password'.format(self._host, self._port), payload, headers)
+
+        con.close()
 
     def shutdown(self):
         if self._process:

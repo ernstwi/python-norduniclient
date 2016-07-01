@@ -47,10 +47,10 @@ except ImportError:
 META_TYPES = ['Physical', 'Logical', 'Relation', 'Location']
 
 
-def init_db(uri=NEO4J_URI):
+def init_db(uri=NEO4J_URI, username=None, password=None):
     if uri:
         try:
-            manager = _get_db_manager(uri)
+            manager = _get_db_manager(uri, username, password)
             try:
                 with manager.transaction as w:
                     w.execute('CREATE CONSTRAINT ON (n:Node) ASSERT n.handle_id IS UNIQUE').fetchall()
@@ -67,8 +67,8 @@ def init_db(uri=NEO4J_URI):
             raise e
 
 
-def _get_db_manager(uri):
-    return contextmanager.Neo4jDBConnectionManager(uri)
+def _get_db_manager(uri, username=None, password=None):
+    return contextmanager.Neo4jDBConnectionManager(uri, username, password)
 
 
 def query_to_dict(manager, query, **kwargs):
