@@ -46,7 +46,7 @@ class Neo4jTemporaryInstance(object):
         self._docker_name = 'neo4j-{!s}'.format(self.port)
         self._process = subprocess.Popen(['docker', 'run', '--rm', '--name', '{!s}'.format(self._docker_name),
                                           '-p', '{!s}:7474'.format(self.port),
-                                          'docker.sunet.se/library/neo4j:2.3.5'],
+                                          'docker.sunet.se/library/neo4j:3.0'],
                                          stdout=open('/tmp/neo4j-temp.log', 'wb'),
                                          stderr=subprocess.STDOUT)
         self._host = 'localhost'

@@ -88,10 +88,10 @@ class ModelsTests(Neo4jTestCase):
             (odf2)-[:Located_in]->(rack3),
             (odf2)-[:Has]->(port5),
             (odf2)-[:Has]->(port7),
-            (port4)<-[:Connected_to]-(cable1)-[:Connected_to]->port2,
-            (port5)<-[:Connected_to]-(cable2)-[:Connected_to]->port3,
-            (port4)<-[:Connected_to]-(cable3)-[:Connected_to]->port5,
-            (port6)<-[:Connected_to]-(cable4)-[:Connected_to]->port7,
+            (port4)<-[:Connected_to]-(cable1)-[:Connected_to]->(port2),
+            (port5)<-[:Connected_to]-(cable2)-[:Connected_to]->(port3),
+            (port4)<-[:Connected_to]-(cable3)-[:Connected_to]->(port5),
+            (port6)<-[:Connected_to]-(cable4)-[:Connected_to]->(port7),
             (port7)<-[:Connected_to]-(cable5),
             (optical_link1)-[:Depends_on]->(port2),
             (optical_link2)-[:Depends_on]->(port3),
@@ -138,7 +138,7 @@ class ModelsTests(Neo4jTestCase):
             (physical1)-[:Located_in]->(location2),
             (relation1)-[:Responsible_for]->(location2),
             (logical4)-[:Depends_on]->(logical3),
-            (physical2)<-[:Connected_to]-(physical4)-[:Connected_to]->physical3
+            (physical2)<-[:Connected_to]-(physical4)-[:Connected_to]->(physical3)
             """
 
         # Insert mocked network

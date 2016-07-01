@@ -1,6 +1,6 @@
 from setuptools import setup, find_packages
 
-version = '0.2.1'
+version = '0.3.1'
 
 requires = [
     'neo4jdb==0.0.9',
