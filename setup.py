@@ -19,7 +19,7 @@ setup(
     license='',
     author='Johan Lundberg',
     author_email='lundberg@nordu.net',
-    description='Neo4j database client for NORDUnet network inventory',
+    description='Neo4j (2.2.8) database client for NORDUnet network inventory',
     packages=find_packages(),
     zip_safe=True,
     install_requires=requires,
