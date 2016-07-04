@@ -194,11 +194,11 @@ class CommonQueries(BaseNodeModel):
     def get_child_form_data(self, node_type):
         type_filter = ''
         if node_type:
-            type_filter = 'and child:{node_type}'.format(node_type=node_type)
+            type_filter = 'and (child):{node_type}'.format(node_type=node_type)
         q = """
             MATCH (parent:Node {{handle_id:{{handle_id}}}})
-            MATCH parent--child
-            WHERE (parent-[:Has]->child or parent<-[:Located_in|Part_of]-child) {type_filter}
+            MATCH (parent)--(child)
+            WHERE (parent)-[:Has]->(child) or (parent)<-[:Located_in|Part_of]-(child) {type_filter}
             RETURN child.handle_id as handle_id, labels(child) as labels, child.name as name,
                    child.description as description
             """.format(type_filter=type_filter)
@@ -243,14 +243,14 @@ class CommonQueries(BaseNodeModel):
         q = """
             MATCH (node:Node {handle_id: {handle_id}})-[:Depends_on]->(d)
             WITH node, collect(DISTINCT d) as direct
-            MATCH node-[:Depends_on*1..20]->dep
+            MATCH (node)-[:Depends_on*1..20]->(dep)
             WITH node, direct, collect(DISTINCT dep) as deps
             WITH node, direct, deps, filter(n in deps WHERE n:Service) as services
             WITH node, direct, deps, services, filter(n in deps WHERE n:Optical_Path) as paths
             WITH node, direct, deps, services, paths, filter(n in deps WHERE n:Optical_Multiplex_Section) as oms
             WITH node, direct, deps, services, paths, oms, filter(n in deps WHERE n:Optical_Link) as links
             WITH node, direct, services, paths, oms, links
-            OPTIONAL MATCH node-[:Depends_on*1..20]->()-[:Connected_to*1..50]-cable
+            OPTIONAL MATCH (node)-[:Depends_on*1..20]->()-[:Connected_to*1..50]-(cable)
             RETURN direct, services, paths, oms, links, filter(n in collect(DISTINCT cable) WHERE n:Cable) as cables
             """
         return core.query_to_dict(self.manager, q, handle_id=self.handle_id)
@@ -259,7 +259,7 @@ class CommonQueries(BaseNodeModel):
         q = """
             MATCH (node:Node {handle_id: {handle_id}})-[r:Connected_to|Depends_on]-(port:Port)
             WITH port, r
-            OPTIONAL MATCH p=port<-[:Has*1..]-parent
+            OPTIONAL MATCH p=(port)<-[:Has*1..]-(parent)
             RETURN port, r as relationship, LAST(nodes(p)) as parent
             ORDER BY parent.name
             """
@@ -542,7 +542,7 @@ class EquipmentModel(PhysicalModel):
             OPTIONAL MATCH (portb)<-[:Has*1..10]-(end)
             WITH  porta, r0, cable, portb, r1, last(collect(end)) as end
             OPTIONAL MATCH (end)-[:Located_in]->(location)
-            OPTIONAL MATCH (location)<-[:Has]-site
+            OPTIONAL MATCH (location)<-[:Has]-(site)
             RETURN porta, r0, cable, r1, portb, end, location, site
             """
         return core.query_to_list(self.manager, q, handle_id=self.handle_id)
@@ -568,7 +568,7 @@ class SubEquipmentModel(PhysicalModel):
             OPTIONAL MATCH (portb)<-[:Has*1..10]-(end)
             WITH  porta, r0, cable, portb, r1, last(collect(end)) as end
             OPTIONAL MATCH (end)-[:Located_in]->(location)
-            OPTIONAL MATCH (location)<-[:Has]-site
+            OPTIONAL MATCH (location)<-[:Has]-(site)
             RETURN porta, r0, cable, r1, portb, end, location, site
             """
         return core.query_to_list(self.manager, q, handle_id=self.handle_id)
@@ -676,7 +676,7 @@ class RouterModel(EquipmentModel):
             type_filter = ':Port'
         q = """
             MATCH (parent:Node {{handle_id:{{handle_id}}}})
-            MATCH parent-[:Has*]->(child{type_filter})
+            MATCH (parent)-[:Has*]->(child{type_filter})
             RETURN child.handle_id as handle_id, labels(child) as labels, child.name as name,
                    child.description as description
             ORDER BY child.name
@@ -765,7 +765,7 @@ class CableModel(PhysicalModel):
             MATCH (equip)<-[:Depends_on*1..10]-(service)
             WHERE service:Service
             WITH distinct service
-            OPTIONAL MATCH service<-[:Uses]-user
+            OPTIONAL MATCH (service)<-[:Uses]-(user)
             RETURN service, collect(user) as users
             """
         return core.query_to_list(self.manager, q, handle_id=self.handle_id)

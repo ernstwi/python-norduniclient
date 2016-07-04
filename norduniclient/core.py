@@ -379,7 +379,7 @@ def _create_relationship(manager, handle_id, other_handle_id, rel_type):
 
     q = """
         MATCH (a:Node {handle_id: {start}}),(b:Node {handle_id: {end}})
-        CREATE a-[r:%s]->b
+        CREATE (a)-[r:%s]->(b)
         RETURN ID(r)
         """ % rel_type
 
