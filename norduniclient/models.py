@@ -176,15 +176,13 @@ class BaseNodeModel(object):
         if meta_type == self.meta_type:
             return self
         if self.remove_label(self.meta_type):
-            self.add_label(meta_type)
-        return core.get_node_model(self.manager, self.handle_id)
+            return self.add_label(meta_type)
 
     def switch_type(self, old_type, new_type):
         if old_type == new_type:
             return self
         if self.remove_label(old_type):
-            self.add_label(new_type)
-        return core.get_node_model(self.manager, self.handle_id)
+            return self.add_label(new_type)
 
     def delete(self):
         core.delete_node(self.manager, self.handle_id)
