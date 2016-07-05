@@ -1,9 +1,9 @@
 from setuptools import setup, find_packages
 
-version = '0.3.1'
+version = '1.0.1'
 
 requires = [
-    'neo4jdb==0.0.9',
+    'neo4j-driver>=1.0.0,<2.0.0',
 ]
 
 testing_requires = [
@@ -19,7 +19,7 @@ setup(
     license='',
     author='Johan Lundberg',
     author_email='lundberg@nordu.net',
-    description='Neo4j (>=2.2.8) database client for NORDUnet network inventory',
+    description='Neo4j (3.0) database client for NORDUnet network inventory',
     packages=find_packages(),
     zip_safe=True,
     install_requires=requires,

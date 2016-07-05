@@ -24,7 +24,7 @@ class BaseRelationshipModel(object):
     def __unicode__(self):
         return u'({start})-[{id}:{type}{data}]->({end}) in database {db}.'.format(
             start=self.start, type=self.type, id=self.id, data=self.data, end=self.end,
-            db=self.manager.dsn
+            db=self.manager.uri
         )
 
     def __eq__(self, other):
@@ -34,7 +34,7 @@ class BaseRelationshipModel(object):
         return self.id < other.id
 
     def __repr__(self):
-        return u'<{c} id:{id} in {db}>'.format(c=self.__class__.__name__, id=self.id, db=self.manager.dsn)
+        return u'<{c} id:{id} in {db}>'.format(c=self.__class__.__name__, id=self.id, db=self.manager.uri)
 
     def load(self, relationship_bundle):
         self.id = relationship_bundle.get('id')
@@ -63,7 +63,7 @@ class BaseNodeModel(object):
     def __unicode__(self):
         labels = ':'.join(self.labels)
         return u'(node:{meta_type}:{labels} {data}) in database {db}.'.format(
-            meta_type=self.meta_type, labels=labels, data=self.data, db=self.manager.dsn
+            meta_type=self.meta_type, labels=labels, data=self.data, db=self.manager.uri
         )
 
     def __eq__(self, other):
@@ -74,7 +74,7 @@ class BaseNodeModel(object):
 
     def __repr__(self):
         return u'<{c} handle_id:{handle_id} in {db}>'.format(c=self.__class__.__name__, handle_id=self.handle_id,
-                                                             db=self.manager.dsn)
+                                                             db=self.manager.uri)
 
     def _get_handle_id(self):
         return self.data.get('handle_id')
@@ -83,7 +83,7 @@ class BaseNodeModel(object):
     def _incoming(self):
         q = """
             MATCH (n:Node {handle_id: {handle_id}})<-[r]-(node)
-            RETURN type(r), id(r), r, node.handle_id
+            RETURN r, node
             """
         return self._basic_read_query_to_dict(q)
     incoming = property(_incoming)
@@ -91,7 +91,7 @@ class BaseNodeModel(object):
     def _outgoing(self):
         q = """
             MATCH (n:Node {handle_id: {handle_id}})-[r]->(node)
-            RETURN type(r), id(r), r, node.handle_id
+            RETURN r, node
             """
         return self._basic_read_query_to_dict(q)
     outgoing = property(_outgoing)
@@ -99,36 +99,47 @@ class BaseNodeModel(object):
     def _relationships(self):
         q = """
             MATCH (n:Node {handle_id: {handle_id}})-[r]-(node)
-            RETURN type(r), id(r), r, node.handle_id
+            RETURN r, node
             """
         return self._basic_read_query_to_dict(q)
     relationships = property(_relationships)
 
     def _basic_read_query_to_dict(self, query, **kwargs):
         d = defaultdict(list)
-        with self.manager.read as r:
-            result = r.execute(query, handle_id=self.handle_id, **kwargs).fetchall()
-            for row in result:
-                rel_type, rel_id, rel, handle_id = row
-                d[rel_type].append({
-                    'relationship_id': rel_id,
-                    'relationship': rel,
-                    'node': core.get_node_model(self.manager, handle_id)
+        with self.manager.session as s:
+            kwargs['handle_id'] = self.handle_id
+            result = s.run(query, kwargs)
+            for record in result:
+                relationship = record['r']
+                node = record['node']
+                key = relationship.type
+                if 'key' in record.keys():
+                    key = record['key']
+                d[key].append({
+                    'relationship_id': relationship.id,
+                    'relationship': relationship.properties,
+                    'node': core.get_node_model(self.manager, node=node)
                 })
         d.default_factory = None
         return d
 
     def _basic_write_query_to_dict(self, query, **kwargs):
         d = defaultdict(list)
-        with self.manager.transaction as t:
-            result = t.execute(query, handle_id=self.handle_id, **kwargs).fetchall()
-            for row in result:
-                created, rel_type, rel_id, rel, handle_id = row
-                d[rel_type].append({
+        with self.manager.session as s:
+            kwargs['handle_id'] = self.handle_id
+            result = s.run(query, kwargs)
+            for record in result:
+                created = record['created']
+                relationship = record['r']
+                node = record['node']
+                key = relationship.type
+                if 'key' in record.keys():
+                    key = record['key']
+                d[key].append({
                     'created': created,
-                    'relationship_id': rel_id,
-                    'relationship': rel,
-                    'node': core.get_node_model(self.manager, handle_id)
+                    'relationship_id': relationship.id,
+                    'relationship': relationship.properties,
+                    'node': core.get_node_model(self.manager, node=node)
                 })
         d.default_factory = None
         return d
@@ -143,19 +154,21 @@ class BaseNodeModel(object):
         q = """
             MATCH (n:Node {{handle_id: {{handle_id}}}})
             SET n:{label}
+            RETURN n
             """.format(label=label)
-        with self.manager.transaction as t:
-            t.execute(q, handle_id=self.handle_id).fetchall()
-        return core.get_node_model(self.manager, self.handle_id)
+        with self.manager.session as s:
+            node = s.run(q, {'handle_id': self.handle_id}).single()['n']
+        return core.get_node_model(self.manager, node=node)
 
     def remove_label(self, label):
         q = """
             MATCH (n:Node {{handle_id: {{handle_id}}}})
             REMOVE n:{label}
-            """.format(old_meta_type=self.meta_type, label=label)
-        with self.manager.transaction as t:
-            t.execute(q, handle_id=self.handle_id).fetchall()
-        return core.get_node_model(self.manager, self.handle_id)
+            RETURN n
+            """.format(label=label)
+        with self.manager.session as s:
+            node = s.run(q, {'handle_id': self.handle_id}).single()['n']
+        return core.get_node_model(self.manager, node=node)
 
     def change_meta_type(self, meta_type):
         if meta_type not in core.META_TYPES:
@@ -163,15 +176,13 @@ class BaseNodeModel(object):
         if meta_type == self.meta_type:
             return self
         if self.remove_label(self.meta_type):
-            self.add_label(meta_type)
-        return core.get_node_model(self.manager, self.handle_id)
+            return self.add_label(meta_type)
 
     def switch_type(self, old_type, new_type):
         if old_type == new_type:
             return self
         if self.remove_label(old_type):
-            self.add_label(new_type)
-        return core.get_node_model(self.manager, self.handle_id)
+            return self.add_label(new_type)
 
     def delete(self):
         core.delete_node(self.manager, self.handle_id)
@@ -207,21 +218,21 @@ class CommonQueries(BaseNodeModel):
     def get_relations(self):
         q = """
             MATCH (n:Node {handle_id: {handle_id}})<-[r:Owns|Uses|Provides|Responsible_for]-(node)
-            RETURN type(r), id(r), r, node.handle_id
+            RETURN r, node
             """
         return self._basic_read_query_to_dict(q)
 
     def get_dependencies(self):
         q = """
             MATCH (n:Node {handle_id: {handle_id}})-[r:Depends_on]->(node)
-            RETURN type(r), id(r), r, node.handle_id
+            RETURN r, node
             """
         return self._basic_read_query_to_dict(q)
 
     def get_dependents(self):
         q = """
             MATCH (n:Node {handle_id: {handle_id}})<-[r:Depends_on]-(node)
-            RETURN type(r), id(r), r, node.handle_id
+            RETURN r, node
             """
         return self._basic_read_query_to_dict(q)
 
@@ -271,7 +282,7 @@ class LogicalModel(CommonQueries):
     def get_part_of(self):
         q = """
             MATCH (n:Node {handle_id: {handle_id}})-[r:Part_of]->(node)
-            RETURN type(r), id(r), r, node.handle_id
+            RETURN r, node
             """
         return self._basic_read_query_to_dict(q)
 
@@ -280,7 +291,7 @@ class LogicalModel(CommonQueries):
             MATCH (n:Node {handle_id: {handle_id}}), (user:Node {handle_id: {user_handle_id}})
             WITH n, user, NOT EXISTS((n)<-[:Uses]-(user)) as created
             MERGE (n)<-[r:Uses]-(user)
-            RETURN created, type(r), id(r), r, user.handle_id
+            RETURN created, r, user as node
             """
         return self._basic_write_query_to_dict(q, user_handle_id=user_handle_id)
 
@@ -289,7 +300,7 @@ class LogicalModel(CommonQueries):
             MATCH (n:Node {handle_id: {handle_id}}), (provider:Node {handle_id: {provider_handle_id}})
             WITH n, provider, NOT EXISTS((n)<-[:Provides]-(provider)) as created
             MERGE (n)<-[r:Provides]-(provider)
-            RETURN created, type(r), id(r), r, provider.handle_id
+            RETURN created, r, provider as node
             """
         return self._basic_write_query_to_dict(q, provider_handle_id=provider_handle_id)
 
@@ -298,7 +309,7 @@ class LogicalModel(CommonQueries):
             MATCH (n:Node {handle_id: {handle_id}}), (dependency:Node {handle_id: {dependency_handle_id}})
             WITH n, dependency, NOT EXISTS((n)-[:Depends_on]->(dependency)) as created
             MERGE (n)-[r:Depends_on]->(dependency)
-            RETURN created, type(r), id(r), r, dependency.handle_id
+            RETURN created, r, dependency as node
             """
         return self._basic_write_query_to_dict(q, dependency_handle_id=dependency_handle_id)
 
@@ -313,7 +324,7 @@ class PhysicalModel(CommonQueries):
     def get_location(self):
         q = """
             MATCH (n:Node {handle_id: {handle_id}})-[r:Located_in]->(node)
-            RETURN type(r), id(r), r, node.handle_id
+            RETURN r, node
             """
         return self._basic_read_query_to_dict(q)
 
@@ -344,7 +355,7 @@ class PhysicalModel(CommonQueries):
             MATCH (n:Node {handle_id: {handle_id}}), (owner:Node {handle_id: {owner_handle_id}})
             WITH n, owner, NOT EXISTS((n)<-[:Owns]-(owner)) as created
             MERGE (n)<-[r:Owns]-(owner)
-            RETURN created, type(r), id(r), r, owner.handle_id
+            RETURN created, r, owner as node
             """
         return self._basic_write_query_to_dict(q, owner_handle_id=owner_handle_id)
 
@@ -353,7 +364,7 @@ class PhysicalModel(CommonQueries):
             MATCH (n:Node {handle_id: {handle_id}}), (provider:Node {handle_id: {provider_handle_id}})
             WITH n, provider, NOT EXISTS((n)<-[:Provides]-(provider)) as created
             MERGE (n)<-[r:Provides]-(provider)
-            RETURN created, type(r), id(r), r, provider.handle_id
+            RETURN created, r, provider as node
             """
         return self._basic_write_query_to_dict(q, provider_handle_id=provider_handle_id)
 
@@ -362,14 +373,14 @@ class PhysicalModel(CommonQueries):
             MATCH (n:Node {handle_id: {handle_id}}), (location:Node {handle_id: {location_handle_id}})
             WITH n, location, NOT EXISTS((n)-[:Located_in]->(location)) as created
             MERGE (n)-[r:Located_in]->(location)
-            RETURN created, type(r), id(r), r, location.handle_id
+            RETURN created, r, location as node
             """
         return self._basic_write_query_to_dict(q, location_handle_id=location_handle_id)
 
     def get_has(self):
         q = """
             MATCH (n:Node {handle_id: {handle_id}})-[r:Has]->(part:Physical)
-            RETURN type(r), id(r), r, part.handle_id
+            RETURN r, part as node
             """
         return self._basic_read_query_to_dict(q)
 
@@ -378,14 +389,14 @@ class PhysicalModel(CommonQueries):
             MATCH (n:Node {handle_id: {handle_id}}), (part:Node {handle_id: {has_handle_id}})
             WITH n, part, NOT EXISTS((n)-[:Has]->(part)) as created
             MERGE (n)-[r:Has]->(part)
-            RETURN created, type(r), id(r), r, part.handle_id
+            RETURN created, r, part as node
             """
         return self._basic_write_query_to_dict(q, has_handle_id=has_handle_id)
 
     def get_part_of(self):
         q = """
             MATCH (n:Node {handle_id: {handle_id}})<-[r:Part_of]-(part:Logical)
-            RETURN type(r), id(r), r, part.handle_id
+            RETURN r, part as node
             """
         return self._basic_read_query_to_dict(q)
 
@@ -394,14 +405,14 @@ class PhysicalModel(CommonQueries):
             MATCH (n:Node {handle_id: {handle_id}}), (part:Node:Logical {handle_id: {part_handle_id}})
             WITH n, part, NOT EXISTS((n)<-[:Part_of]-(part)) as created
             MERGE (n)<-[r:Part_of]-(part)
-            RETURN created, type(r), id(r), r, part.handle_id
+            RETURN created, r, part as node
             """
         return self._basic_write_query_to_dict(q, part_handle_id=part_handle_id)
 
     def get_parent(self):
         q = """
             MATCH (n:Node {handle_id: {handle_id}})<-[r:Has]-(parent)
-            RETURN type(r), id(r), r, parent.handle_id
+            RETURN r, parent as node
             """
         return self._basic_read_query_to_dict(q)
 
@@ -424,21 +435,21 @@ class LocationModel(CommonQueries):
     def get_parent(self):
         q = """
             MATCH (n:Node {handle_id: {handle_id}})<-[r:Has]-(parent)
-            RETURN type(r), id(r), r, parent.handle_id
+            RETURN r, parent as node
             """
         return self._basic_read_query_to_dict(q)
 
     def get_located_in(self):
         q = """
             MATCH (n:Node {handle_id: {handle_id}})<-[r:Located_in]-(node)
-            RETURN type(r), id(r), r, node.handle_id
+            RETURN r, node
             """
         return self._basic_read_query_to_dict(q)
 
     def get_has(self):
         q = """
             MATCH (n:Node {handle_id: {handle_id}})-[r:Has]->(node:Location)
-            RETURN type(r), id(r), r, node.handle_id
+            RETURN r, node
             """
         return self._basic_read_query_to_dict(q)
 
@@ -447,7 +458,7 @@ class LocationModel(CommonQueries):
             MATCH (n:Node {handle_id: {handle_id}}), (part:Node {handle_id: {has_handle_id}})
             WITH n, part, NOT EXISTS((n)-[:Has]->(part)) as created
             MERGE (n)-[r:Has]->(part)
-            RETURN created, type(r), id(r), r, part.handle_id
+            RETURN created, r, part as node
             """
         return self._basic_write_query_to_dict(q, has_handle_id=has_handle_id)
 
@@ -456,7 +467,7 @@ class LocationModel(CommonQueries):
             MATCH (n:Node {handle_id: {handle_id}}), (owner:Node {handle_id: {owner_handle_id}})
             WITH n, owner, NOT EXISTS((n)<-[:Responsible_for]-(owner)) as created
             MERGE (n)<-[r:Responsible_for]-(owner)
-            RETURN created, type(r), id(r), r, owner.handle_id
+            RETURN created, r, owner as node
             """
         return self._basic_write_query_to_dict(q, owner_handle_id=owner_handle_id)
 
@@ -474,28 +485,28 @@ class RelationModel(CommonQueries):
     def get_uses(self):
         q = """
             MATCH (n:Node {handle_id: {handle_id}})-[r:Uses]->(usable)
-            RETURN type(r), id(r), r, usable.handle_id
+            RETURN r, usable as node
             """
         return self._basic_read_query_to_dict(q)
 
     def get_provides(self):
         q = """
             MATCH (n:Node {handle_id: {handle_id}})-[r:Provides]->(usable)
-            RETURN type(r), id(r), r, usable.handle_id
+            RETURN r, usable as node
             """
         return self._basic_read_query_to_dict(q)
 
     def get_owns(self):
         q = """
             MATCH (n:Node {handle_id: {handle_id}})-[r:Owns]->(usable)
-            RETURN type(r), id(r), r, usable.handle_id
+            RETURN r, usable as node
             """
         return self._basic_read_query_to_dict(q)
 
     def get_responsible_for(self):
         q = """
             MATCH (n:Node {handle_id: {handle_id}})-[r:Responsible_for]->(usable)
-            RETURN type(r), id(r), r, usable.handle_id
+            RETURN r, usable as node
             """
         return self._basic_read_query_to_dict(q)
 
@@ -505,7 +516,7 @@ class EquipmentModel(PhysicalModel):
     def get_ports(self):
         q = """
             MATCH (n:Node {handle_id: {handle_id}})-[r:Has]->(port:Port)
-            RETURN type(r), id(r), r, port.handle_id
+            RETURN r, port as node
             """
         return self._basic_read_query_to_dict(q)
 
@@ -513,7 +524,7 @@ class EquipmentModel(PhysicalModel):
         q = """
             MATCH (n:Node {handle_id: {handle_id}})-[r:Has]->(port:Port)
             WHERE port.name = {port_name}
-            RETURN type(r), id(r), r, port.handle_id
+            RETURN r, port as node
             """
         return self._basic_read_query_to_dict(q, port_name=port_name)
 
@@ -593,7 +604,7 @@ class HostModel(CommonQueries):
     def get_host_services(self):
         q = """
             MATCH (host:Node {handle_id: {handle_id}})<-[r:Depends_on]-(service:Host_Service)
-            RETURN type(r), id(r), r, service.handle_id
+            RETURN r, service as node
             """
         return self._basic_read_query_to_dict(q)
 
@@ -601,7 +612,7 @@ class HostModel(CommonQueries):
         q = """
             MATCH (n:Node {handle_id: {handle_id}})<-[r:Depends_on]-(host_service:Node {handle_id: {service_handle_id}})
             WHERE r.ip_address={ip_address} AND r.port={port} AND r.protocol={protocol}
-            RETURN type(r), id(r), r, host_service.handle_id
+            RETURN r, host_service as node
             """
         return self._basic_read_query_to_dict(q, service_handle_id=service_handle_id, ip_address=ip_address, port=port,
                                               protocol=protocol)
@@ -610,7 +621,7 @@ class HostModel(CommonQueries):
         q = """
             MATCH (n:Node {handle_id: {handle_id}}), (host_service:Node {handle_id: {service_handle_id}})
             CREATE (n)<-[r:Depends_on {ip_address:{ip_address}, port:{port}, protocol:{protocol}}]-(host_service)
-            RETURN true as created, type(r), id(r), r, host_service.handle_id
+            RETURN true as created, r, host_service as node
             """
         return self._basic_write_query_to_dict(q, service_handle_id=service_handle_id, ip_address=ip_address,
                                                port=port, protocol=protocol)
@@ -629,7 +640,7 @@ class PortModel(SubEquipmentModel):
     def get_units(self):
         q = """
             MATCH (n:Node {handle_id: {handle_id}})<-[r:Part_of]-(unit:Unit)
-            RETURN type(r), id(r), r, unit.handle_id
+            RETURN r, unit as node
             """
         return self._basic_read_query_to_dict(q)
 
@@ -637,14 +648,14 @@ class PortModel(SubEquipmentModel):
         q = """
             MATCH (n:Node {handle_id: {handle_id}})<-[r:Part_of]-(unit:Unit)
             WHERE unit.name = {unit_name}
-            RETURN type(r), id(r), r, unit.handle_id
+            RETURN r, unit as node
             """
         return self._basic_read_query_to_dict(q, unit_name=unit_name)
 
     def get_connected_to(self):
         q = """
             MATCH (n:Node {handle_id: {handle_id}})<-[r:Connected_to]-(cable:Cable)
-            RETURN type(r), id(r), r, cable.handle_id
+            RETURN r, cable as node
             """
         return self._basic_read_query_to_dict(q)
 
@@ -689,7 +700,7 @@ class PeeringPartnerModel(RelationModel):
     def get_peering_groups(self):
         q = """
             MATCH (host:Node {handle_id: {handle_id}})-[r:Uses]->(group:Peering_Group)
-            RETURN type(r), id(r), r, group.handle_id
+            RETURN r, group as node
             """
         return self._basic_read_query_to_dict(q)
 
@@ -697,7 +708,7 @@ class PeeringPartnerModel(RelationModel):
         q = """
             MATCH (n:Node {handle_id: {handle_id}})-[r:Uses]->(group:Node {handle_id: {group_handle_id}})
             WHERE r.ip_address={ip_address}
-            RETURN type(r), id(r), r, group.handle_id
+            RETURN r, group as node
             """
         return self._basic_read_query_to_dict(q, group_handle_id=group_handle_id, ip_address=ip_address)
 
@@ -705,7 +716,7 @@ class PeeringPartnerModel(RelationModel):
         q = """
             MATCH (n:Node {handle_id: {handle_id}}), (group:Node {handle_id: {group_handle_id}})
             CREATE (n)-[r:Uses {ip_address:{ip_address}}]->(group)
-            RETURN true as created, type(r), id(r), r, group.handle_id
+            RETURN true as created, r, group as node
             """
         return self._basic_write_query_to_dict(q, group_handle_id=group_handle_id, ip_address=ip_address)
 
@@ -716,7 +727,7 @@ class PeeringGroupModel(LogicalModel):
         q = """
             MATCH (n:Node {handle_id: {handle_id}})-[r:Depends_on]->(dependency:Node {handle_id: {dependency_handle_id}})
             WHERE r.ip_address={ip_address}
-            RETURN type(r), id(r), r, dependency.handle_id
+            RETURN r, dependency as node
             """
         return self._basic_read_query_to_dict(q, dependency_handle_id=dependency_handle_id, ip_address=ip_address)
 
@@ -724,7 +735,7 @@ class PeeringGroupModel(LogicalModel):
         q = """
             MATCH (n:Node {handle_id: {handle_id}}), (dependency:Node {handle_id: {dependency_handle_id}})
             CREATE (n)-[r:Depends_on {ip_address:{ip_address}}]->(dependency)
-            RETURN true as created, type(r), id(r), r, dependency.handle_id
+            RETURN true as created, r, dependency as node
             """
         return self._basic_write_query_to_dict(q, dependency_handle_id=dependency_handle_id, ip_address=ip_address)
 
@@ -789,7 +800,7 @@ class CableModel(PhysicalModel):
             MATCH (n:Node {handle_id: {handle_id}}), (part:Node {handle_id: {connected_to_handle_id}})
             WITH n, part, NOT EXISTS((n)-[:Connected_to]->(part)) as created
             MERGE (n)-[r:Connected_to]->(part)
-            RETURN created, type(r), id(r), r, part.handle_id
+            RETURN created, r, part as node
             """
         return self._basic_write_query_to_dict(q, connected_to_handle_id=connected_to_handle_id)
 
@@ -824,7 +835,7 @@ class ServiceModel(LogicalModel):
     def get_customers(self):
         q = """
             MATCH (n:Node {handle_id: {handle_id}})<-[r:Owns|Uses]-(customer:Customer)
-            RETURN "customers", id(r), r, customer.handle_id
+            RETURN "customers" as key, r, customer as node
             """
         return self._basic_read_query_to_dict(q)
 

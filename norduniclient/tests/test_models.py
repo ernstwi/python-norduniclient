@@ -142,12 +142,12 @@ class ModelsTests(Neo4jTestCase):
             """
 
         # Insert mocked network
-        with self.neo4jdb.transaction as w:
-            w.execute(q1).fetchall()
+        with self.neo4jdb.session as s:
+            s.run(q1)
 
         # Insert generic models
-        with self.neo4jdb.transaction as w:
-            w.execute(q2).fetchall()
+        with self.neo4jdb.session as s:
+            s.run(q2)
 
     def test_base_node_model(self):
         node_model_1 = core.get_node_model(self.neo4jdb, handle_id='101')
@@ -262,10 +262,11 @@ class ModelsTests(Neo4jTestCase):
     def test_get_child_form_data(self):
         physical1 = core.get_node_model(self.neo4jdb, handle_id='101')
         child_form_data = physical1.get_child_form_data(node_type='Generic')
-        self.assertEqual(child_form_data[0]['handle_id'], '102')
-        self.assertEqual(child_form_data[0]['name'], 'Physical2')
-        self.assertEqual(child_form_data[0]['description'], 'This is a port')
-        self.assertEqual(child_form_data[0]['labels'], [u'Node', u'Physical', u'Generic'])
+        for data in child_form_data:
+            self.assertIn(data['handle_id'], ['102', '104'])
+            self.assertIn(data['name'], ['Physical2', 'Physical3'])
+            self.assertIn(data['description'], ['This is a port', None])
+            self.assertEqual(data['labels'], [u'Node', u'Physical', u'Generic'])
 
     def test_get_relations(self):
         physical1 = core.get_node_model(self.neo4jdb, handle_id='101')

@@ -2,6 +2,9 @@
 
 from __future__ import absolute_import
 
+from neo4j.v1.types import Node, Relationship
+from neo4j.v1.exceptions import CypherError, ResultError
+
 from norduniclient.testing import Neo4jTestCase
 from norduniclient import core
 from norduniclient import exceptions
@@ -27,7 +30,7 @@ class CoreTests(Neo4jTestCase):
         self.assertEqual(node.get('handle_id'), '3')
 
     def test_create_node_existing_node_handle(self):
-        self.assertRaises(exceptions.IntegrityError, core.create_node, self.neo4jdb, name='Test Node 1',
+        self.assertRaises(CypherError, core.create_node, self.neo4jdb, name='Test Node 1',
                           meta_type_label='Logical', type_label='Test_Node', handle_id='1')
 
     def test_create_node_bad_meta_type(self):
