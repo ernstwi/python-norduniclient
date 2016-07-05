@@ -2,6 +2,9 @@
 
 from __future__ import absolute_import
 
+from neo4j.v1.types import Node, Relationship
+from neo4j.v1.exceptions import CypherError, ResultError
+
 from norduniclient.testing import Neo4jTestCase
 from norduniclient import core
 from norduniclient import exceptions
@@ -14,27 +17,20 @@ class CoreTests(Neo4jTestCase):
 
     def setUp(self):
         super(CoreTests, self).setUp()
-        session = self.neo4jdb.session()
-        with session.begin_transaction() as tx:
-            core.create_node(tx, name='Test Node 1', meta_type_label='Logical',
-                             type_label='Test_Node', handle_id='1')
-            core.create_node(tx, name='Test Node 2', meta_type_label='Logical',
-                             type_label='Test_Node', handle_id='2')
-            tx.success = True
-        session.close()
+        core.create_node(self.neo4jdb, name='Test Node 1', meta_type_label='Logical',
+                         type_label='Test_Node', handle_id='1')
+        core.create_node(self.neo4jdb, name='Test Node 2', meta_type_label='Logical',
+                         type_label='Test_Node', handle_id='2')
 
     def test_create_and_get_node(self):
-        session = self.neo4jdb.session()
-        with session.begin_transaction() as tx:
-            core.create_node(tx, name='Test Node 3', meta_type_label='Logical',
-                             type_label='Test_Node', handle_id='3')
-            node = core.get_node(tx, handle_id='3')
-            self.assertIsInstance(node, dict)
-            self.assertEqual(node.get('handle_id'), '3')
-        session.close()
+        core.create_node(self.neo4jdb, name='Test Node 3', meta_type_label='Logical',
+                         type_label='Test_Node', handle_id='3')
+        node = core.get_node(self.neo4jdb, handle_id='3')
+        self.assertIsInstance(node, dict)
+        self.assertEqual(node.get('handle_id'), '3')
 
     def test_create_node_existing_node_handle(self):
-        self.assertRaises(exceptions.IntegrityError, core.create_node, self.neo4jdb, name='Test Node 1',
+        self.assertRaises(CypherError, core.create_node, self.neo4jdb, name='Test Node 1',
                           meta_type_label='Logical', type_label='Test_Node', handle_id='1')
 
     def test_create_node_bad_meta_type(self):

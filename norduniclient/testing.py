@@ -94,8 +94,8 @@ class Neo4jTemporaryInstance(object):
             OPTIONAL MATCH (n)-[r]-()
             DELETE n,r
             """
-        session = self.db.session()
-        session.run(q)
+        with self.db.session as s:
+            s.run(q)
 
     def change_password(self, new_password='testing'):
         """

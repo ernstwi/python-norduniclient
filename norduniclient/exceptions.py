@@ -5,26 +5,24 @@ Created on Thu Oct 13 16:36:31 2011
 @author: lundberg
 """
 
-import norduniclient.core
+from __future__ import absolute_import
 
 
 class NoRelationshipPossible(Exception):
     """
     Exception that explains why the nodes relationship was not possible.
     """
-    def __init__(self, manager, handle_id1, handle_id2, relationship_type):
-        self.manager = manager
+    def __init__(self, handle_id1, meta_type1, handle_id2, meta_type2, relationship_type):
         self.handle_id1 = handle_id1
         self.handle_id2 = handle_id2
+        self.meta_type1 = meta_type1
+        self.meta_type2 = meta_type2
         self.relationship_type = relationship_type
     
     def __str__(self):
-        node1_str = '{meta_type} Node ({handle_id})'.format(
-            meta_type=norduniclient.core.get_node_meta_type(self.manager, self.handle_id1), handle_id=self.handle_id1)
-        node2_str = '{meta_type} Node ({handle_id})'.format(
-            meta_type=norduniclient.core.get_node_meta_type(self.manager, self.handle_id2), handle_id=self.handle_id2)
-        return '%s %s %s is not possible.' % (node1_str, self.relationship_type,
-                                              node2_str)                       
+        node1_str = '{meta_type} Node ({handle_id})'.format(meta_type=self.meta_type1, handle_id=self.handle_id1)
+        node2_str = '{meta_type} Node ({handle_id})'.format(meta_type=self.meta_type2, handle_id=self.handle_id2)
+        return '%s %s %s is not possible.' % (node1_str, self.relationship_type, node2_str)
 
 
 class MetaLabelNamingError(Exception):
@@ -100,7 +98,7 @@ class NodeNotFound(Exception):
     """
     def __init__(self, manager, handle_id):
         self.message = '{handle_id} did not match a node in database at {db}.'.format(handle_id=handle_id,
-                                                                                      db=manager.dsn)
+                                                                                      db=manager.uri)
 
     def __str__(self):
         return self.message
@@ -112,7 +110,7 @@ class RelationshipNotFound(Exception):
     """
     def __init__(self, manager, relationship_id):
         self.message = '{relationship_id} did not match a relationship in database at {db}.'.format(
-            relationship_id=relationship_id, db=manager.dsn)
+            relationship_id=relationship_id, db=manager.uri)
 
     def __str__(self):
         return self.message

@@ -1,72 +1,58 @@
 # -*- coding: utf-8 -*-
+
+from __future__ import absolute_import
+
+from contextlib import contextmanager
+from norduniclient.core import get_db_driver
+
 __author__ = 'lundberg'
 
 
-from contextlib import contextmanager
-from neo4j.v1 import GraphDatabase, basic_auth
-
-
-class Neo4jDBConnectionManager:
+class Neo4jDBSessionManager:
 
     """
     Every new connection is a transaction. To minimize new connection overhead for many reads we try to reuse a single
     connection. If this seem like a bad idea some kind of connection pool might work better.
 
-    Neo4jDBConnectionManager.read()
-    When using with Neo4jDBConnectionManager.read(): we will always rollback the transaction. All exceptions will be
+    Neo4jDBSessionManager.read()
+    When using with Neo4jDBSessionManager.read(): we will always rollback the transaction. All exceptions will be
     thrown.
 
-    Neo4jDBConnectionManager.write()
-    When using with Neo4jDBConnectionManager.write() we will always commit the transaction except when we see an
+    Neo4jDBSessionManager.write()
+    When using with Neo4jDBSessionManager.write() we will always commit the transaction except when we see an
     exception. If we get an exception we will rollback the transaction and throw the exception.
 
-    Neo4jDBConnectionManager.transaction()
+    Neo4jDBSessionManager.transaction()
     When we don't want to share a connection (transaction context) we can set up a new connection which will work
     just as the write context manager above but with it's own connection.
     """
 
-    def __init__(self, dsn, username=None, password=None):
-        self.dsn = dsn
-        self.connection = connect(dsn, username, password)
+    def __init__(self, uri, username=None, password=None, encrypted=True):
+        self.uri = uri
+        self.driver = get_db_driver(uri, username, password, encrypted)
 
     @contextmanager
-    def _read(self):
-        cursor = self.connection.cursor()
+    def _session(self):
+        session = self.driver.session()
         try:
-            yield cursor
-        finally:
-            cursor.close()
-            self.connection.rollback()
-    read = property(_read)
-
-    @contextmanager
-    def _write(self):
-        cursor = self.connection.cursor()
-        try:
-            yield cursor
-        except self.connection.Error as e:
-            cursor.close()
-            self.connection.rollback()
+            yield session
+        except Exception as e:
             raise e
-        else:
-            cursor.close()
-            self.connection.commit()
         finally:
-            pass
-    write = property(_write)
+            session.close()
+    session = property(_session)
 
     @contextmanager
     def _transaction(self):
-        connection = connect(self.dsn)
-        cursor = connection.cursor()
+        session = self.driver.session()
+        transaction = session.begin_transaction()
         try:
-            yield cursor
-        except self.connection.Error as e:
-            connection.rollback()
+            yield transaction
+        except Exception as e:
+            transaction.success = False
             raise e
         else:
-            connection.commit()
+            transaction.success = True
         finally:
-            cursor.close()
-            connection.close()
+            session.close()
     transaction = property(_transaction)
