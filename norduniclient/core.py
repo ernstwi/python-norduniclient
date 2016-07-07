@@ -35,10 +35,12 @@ try:
     from django.conf import settings as django_settings
     try:
         NEO4J_URI = django_settings.NEO4J_RESOURCE_URI
+        NEO4J_USERNAME = django_settings.NEO4J_USERNAME
+        NEO4J_PASSWORD = django_settings.NEO4J_PASSWORD
     except ImproperlyConfigured:
-        NEO4J_URI = None
+        NEO4J_URI, NEO4J_USERNAME, NEO4J_PASSWORD = None, None, None
 except ImportError:
-    NEO4J_URI = None
+    NEO4J_URI, NEO4J_USERNAME, NEO4J_PASSWORD = None, None, None
     logger.info('Starting up without a Django environment.')
     logger.info('Initial: norduniclient.neo4jdb == None.')
     logger.info('Use norduniclient.init_db(uri) to open a database connection.')
@@ -47,7 +49,7 @@ except ImportError:
 META_TYPES = ['Physical', 'Logical', 'Relation', 'Location']
 
 
-def init_db(uri=NEO4J_URI, username=None, password=None):
+def init_db(uri=NEO4J_URI, username=NEO4J_USERNAME, password=NEO4J_PASSWORD):
     if uri:
         try:
             manager = _get_db_manager(uri, username, password)
