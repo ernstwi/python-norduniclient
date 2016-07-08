@@ -2,7 +2,7 @@
 
 from __future__ import absolute_import
 
-from norduniclient.core import init_db
+from norduniclient.core import *
 
 __author__ = 'lundberg'
 

@@ -95,9 +95,10 @@ def get_db_driver(uri, username=None, password=None, encrypted=True, max_pool_si
 def query_to_dict(manager, query, **kwargs):
     d = {}
     with manager.session as s:
-        record = s.run(query, kwargs).single()
-        for key, value in record.items():
-            d[key] = value
+        result = s.run(query, kwargs)
+        for record in result:
+            for key, value in record.items():
+                d[key] = value
     return d
 
 
