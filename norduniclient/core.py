@@ -22,7 +22,7 @@ from __future__ import absolute_import
 
 import re
 from neo4j.v1 import GraphDatabase, basic_auth
-from neo4j.v1.exceptions import ResultError, CypherError
+from neo4j.v1.exceptions import ResultError, CypherError, ProtocolError
 
 from norduniclient import exceptions
 from norduniclient import models
@@ -61,14 +61,13 @@ def init_db(uri=NEO4J_URI, username=NEO4J_USERNAME, password=NEO4J_PASSWORD, enc
             except Exception as e:
                 raise e
             try:
-                with manager.session as s:
-                    s.run('CREATE INDEX ON :Node(name)')
+                create_index(manager, 'name')
             except Exception as e:
                 raise e
             return manager
-        except Exception as e:
-            logger.error('Could not connect to Neo4j database: {!s}'.format(uri))
-            raise e
+        except ProtocolError:
+            logger.warning('Could not connect to Neo4j database: {!s}'.format(uri))
+            return None
 
 
 def get_db_driver(uri, username=None, password=None, encrypted=True, max_pool_size=50, trust=0):
@@ -321,7 +320,7 @@ def get_node_meta_type(manager, handle_id):
 
 
 # TODO: Try out elasticsearch
-def get_nodes_by_value(manager, value, prop=None, node_type=None):
+def get_nodes_by_value(manager, value, prop=None, node_type='Node'):
     """
     Traverses all nodes or nodes of specified label and compares the property/properties of the node
     with the supplied string.
@@ -332,8 +331,6 @@ def get_nodes_by_value(manager, value, prop=None, node_type=None):
     :param node_type:
     :return: dicts
     """
-    if not node_type:
-        node_type = 'Node'
     if prop:
         if isinstance(value, basestring):
             q = '''
@@ -401,11 +398,53 @@ def legacy_node_index_search(manager, lucene_query):
     :param lucene_query: string
     :return: dict
     """
+    raise NotImplementedError('Legacy index removed from Neo4j 3.0')
+
+
+def create_index(manager, prop, node_type='Node'):
+    """
+    :param manager: Neo4jDBSessionManager
+    :param prop: Property to index
+    :param node_type: Label to create index on
+
+    :type manager: Neo4jDBSessionManager
+    :type prop: str
+    :type node_type: str
+    """
+    with manager.session as s:
+        s.run('CREATE INDEX ON :{node_type}({prop})'.format(node_type=node_type, prop=prop))
+
+
+def get_indexed_node(manager, prop, value, node_type='Node', lookup_func='CONTAINS', legacy=True):
+    """
+    :param manager: Neo4jDBSessionManager
+    :param prop: Indexed property
+    :param value: Indexed value
+    :param node_type: Label used for index
+    :param lookup_func: STARTS WITH | CONTAINS | ENDS WITH
+    :param legacy: Backwards compatibility
+
+    :type manager: Neo4jDBSessionManager
+    :type prop: str
+    :type value: str
+    :type node_type: str
+    :type lookup_func: str
+    :type legacy: bool
+
+    :return: Dict or Node object
+    :rtype: dict|Node
+    """
     q = """
-        START n=node:node_auto_index({lucene_query})
-        RETURN collect(n.handle_id) as result
-        """
-    return query_to_dict(manager, q, lucene_query=lucene_query)
+        MATCH (n:{label})
+        WHERE n.{prop} {lookup_func} {{value}}
+        RETURN n
+        """.format(label=node_type, prop=prop, lookup_func=lookup_func)
+    with manager.session as s:
+        for result in s.run(q, {'value': value}):
+            if legacy:
+                yield result['n'].properties
+            else:
+                yield result['n']
 
 
 def get_unique_node_by_name(manager, node_name, node_type):
