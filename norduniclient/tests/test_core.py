@@ -349,6 +349,47 @@ class CoreTests(Neo4jTestCase):
             return
         self.assertTrue(False, 'Nothing found')
 
+    def test_search_nodes_by_value(self):
+        new_properties = {'test': 'hello world'}
+        core.set_node_properties(self.neo4jdb, handle_id='1', new_properties=new_properties)
+
+        result = core.search_nodes_by_value(self.neo4jdb, value='world')
+        self.assertIsNotNone(result)
+        for node in result:
+            self.assertEqual(node.get('test'), 'hello world')
+            return
+        self.assertTrue(False, 'Nothing found')
+
+    def test_search_nodes_by_value_and_property(self):
+        new_properties = {'test': 'hello world'}
+        core.set_node_properties(self.neo4jdb, handle_id='1', new_properties=new_properties)
+        result = core.search_nodes_by_value(self.neo4jdb, value='world', prop='test')
+        self.assertIsNotNone(result)
+        for node in result:
+            self.assertEqual(node.get('test'), 'hello world')
+            return
+        self.assertTrue(False, 'Nothing found')
+
+    def test_search_nodes_by_value_in_list(self):
+        new_properties = {'test': ['hello', 'world']}
+        core.set_node_properties(self.neo4jdb, handle_id='1', new_properties=new_properties)
+
+        result = core.search_nodes_by_value(self.neo4jdb, value='hel')
+        self.assertIsNotNone(result)
+        for node in result:
+            self.assertEqual(node.get('test'), ['hello', 'world'])
+            return
+        self.assertTrue(False, 'Nothing found')
+
+    def test_search_nodes_by_value_and_property_in_list(self):
+        new_properties = {'test': ['hello', 'world']}
+        core.set_node_properties(self.neo4jdb, handle_id='1', new_properties=new_properties)
+        result = core.search_nodes_by_value(self.neo4jdb, value='hel', prop='test')
+        for node in result:
+            self.assertEqual(node.get('test'), ['hello', 'world'])
+            return
+        self.assertTrue(False, 'Nothing found')
+
     def test_get_nodes_by_type(self):
         result = core.get_nodes_by_type(self.neo4jdb, 'Test_Node')
         for node in result:

@@ -329,23 +329,59 @@ def get_nodes_by_value(manager, value, prop=None, node_type='Node'):
     :param value: Value to search for
     :param prop: Which property to look for value in
     :param node_type:
+
+    :type value: str|list|bool|int
+    :type prop: str
+    :type node_type: str
     :return: dicts
     """
     if prop:
-        if isinstance(value, basestring):
-            q = '''
-                MATCH (n:{label})
-                USING SCAN n:{label}
-                WHERE n.{prop} =~ "(?i).*{value}.*"
-                RETURN distinct n
-                '''.format(label=node_type, prop=prop, value=value)
-        else:
-            q = '''
-                MATCH (n:{label})
-                USING SCAN n:{label}
-                WHERE n.{prop} = {value}
-                RETURN distinct n
-                '''.format(label=node_type, prop=prop, value=value)
+        q = '''
+            MATCH (n:{label})
+            USING SCAN n:{label}
+            WHERE n.{prop} = {{value}}
+            RETURN distinct n
+            '''.format(label=node_type, prop=prop)
+
+        with manager.session as s:
+            for result in s.run(q, {'value': value}):
+                yield result['n']
+    else:
+        q = '''
+            MATCH (n:{label})
+            RETURN n
+            '''.format(label=node_type)
+        pattern = re.compile(u'.*{0}.*'.format(value), re.IGNORECASE)
+        with manager.session as s:
+            for result in s.run(q):
+                for v in result['n'].properties.values():
+                    if pattern.match(unicode(v)):
+                        yield result['n']
+                        break
+
+
+def search_nodes_by_value(manager, value, prop=None, node_type='Node'):
+    """
+    Traverses all nodes or nodes of specified label and fuzzy compares the property/properties of the node
+    with the supplied string.
+
+    :param manager: Neo4jDBSessionManager
+    :param value: Value to search for
+    :param prop: Which property to look for value in
+    :param node_type:
+
+    :type value: str
+    :type prop: str
+    :type node_type: str
+    :return: dicts
+    """
+    if prop:
+        q = '''
+            MATCH (n:{label})
+            USING SCAN n:{label}
+            WHERE n.{prop} =~ "(?i).*{value}.*" OR any(x IN n.{prop} WHERE x =~ "(?i).*{value}.*")
+            RETURN distinct n
+            '''.format(label=node_type, prop=prop, value=value)
 
         with manager.session as s:
             for result in s.run(q):
