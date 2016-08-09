@@ -18,8 +18,6 @@ except ImportError:
 
 from norduniclient.core import init_db
 
-
-
 __author__ = 'lundberg'
 
 

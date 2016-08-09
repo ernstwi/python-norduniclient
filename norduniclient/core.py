@@ -360,6 +360,19 @@ def get_nodes_by_value(manager, value, prop=None, node_type='Node'):
                         break
 
 
+def get_node_by_type(manager, node_type, legacy=True):
+    q = '''
+        MATCH (n:{label})
+        RETURN distinct n
+        '''.format(label=node_type)
+    with manager.session as s:
+        for result in s.run(q):
+            if legacy:
+                yield result['n'].properties
+            else:
+                yield result['n']
+
+
 def search_nodes_by_value(manager, value, prop=None, node_type='Node'):
     """
     Traverses all nodes or nodes of specified label and fuzzy compares the property/properties of the node
