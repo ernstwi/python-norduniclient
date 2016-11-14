@@ -21,7 +21,7 @@ setup(
     author_email='lundberg@nordu.net',
     description='Neo4j (3.0) database client using bolt for NORDUnet network inventory',
     packages=find_packages(),
-    zip_safe=True,
+    zip_safe=False,
     install_requires=requires,
     tests_require=testing_requires,
     test_suite="norduniclient",
