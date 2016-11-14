@@ -351,11 +351,11 @@ def get_nodes_by_value(manager, value, prop=None, node_type='Node'):
             MATCH (n:{label})
             RETURN n
             '''.format(label=node_type)
-        pattern = re.compile(u'.*{0}.*'.format(value), re.IGNORECASE)
+        pattern = re.compile(u'{0}'.format(value), re.IGNORECASE)
         with manager.session as s:
             for result in s.run(q):
                 for v in result['n'].properties.values():
-                    if pattern.match(unicode(v)):
+                    if pattern.search(unicode(v)):
                         yield result['n']
                         break
 
@@ -404,11 +404,11 @@ def search_nodes_by_value(manager, value, prop=None, node_type='Node'):
             MATCH (n:{label})
             RETURN n
             '''.format(label=node_type)
-        pattern = re.compile(u'.*{0}.*'.format(value), re.IGNORECASE)
+        pattern = re.compile(u'{0}'.format(value), re.IGNORECASE)
         with manager.session as s:
             for result in s.run(q):
                 for v in result['n'].properties.values():
-                    if pattern.match(unicode(v)):
+                    if pattern.search(unicode(v)):
                         yield result['n']
                         break
 
