@@ -16,7 +16,7 @@ setup(
     name='norduniclient',
     version=version,
     url='https://github.com/NORDUnet/python-norduniclient',
-    license='',
+    license='Apache License, Version 2.0',
     author='Johan Lundberg',
     author_email='lundberg@nordu.net',
     description='Neo4j (3.0) database client using bolt for NORDUnet network inventory',
