@@ -3,8 +3,8 @@ python:
 - '2.7'
 - '3.5'
 - '3.6'
-install: python setup testing
-script: python setup test
+install: python setup.py testing
+script: python setup.py test
 deploy:
   provider: pypi
   user: Lundberg
