@@ -3,7 +3,7 @@ from setuptools import setup, find_packages
 version = '1.0.7'
 
 requires = [
-    'neo4j-driver>=1.0.0,<2.0.0',
+    'neo4j-driver>=1.0.0,<1.1.0',
 ]
 
 testing_requires = [
@@ -19,12 +19,12 @@ setup(
     license='Apache License, Version 2.0',
     author='Johan Lundberg',
     author_email='lundberg@nordu.net',
-    description='Neo4j (3.0) database client using bolt for NORDUnet network inventory',
+    description='Neo4j (>=3.0) database client using bolt for NORDUnet network inventory',
     packages=find_packages(),
     zip_safe=False,
     install_requires=requires,
     tests_require=testing_requires,
-    test_suite="norduniclient",
+    test_suite='nose.collector',
     extras_require={
         'testing': testing_requires
     }
