@@ -174,8 +174,8 @@ class ModelsTests(Neo4jTestCase):
         node_model_1.add_label('Test_Label')
         node_model_1 = node_model_1.reload()
         new_labels = node_model_1.labels
-        expected_labels = initial_labels + ['Test_Label']
-        self.assertEqual(new_labels, expected_labels)
+        initial_labels.append('Test_Label')
+        self.assertEqual(sorted(new_labels), sorted(initial_labels))
 
     def test_remove_label(self):
         node_model_1 = core.get_node_model(self.neo4jdb, handle_id='101')
@@ -183,10 +183,10 @@ class ModelsTests(Neo4jTestCase):
         node_model_1 = node_model_1.add_label('Test_Label')
         new_labels = node_model_1.labels
         expected_labels = initial_labels + ['Test_Label']
-        self.assertEqual(new_labels, expected_labels)
+        self.assertEqual(sorted(new_labels), sorted(expected_labels))
         node_model_1 = node_model_1.remove_label('Test_Label')
         new_labels = node_model_1.labels
-        self.assertEqual(new_labels, initial_labels)
+        self.assertEqual(sorted(new_labels), sorted(initial_labels))
 
     def test_change_meta_type(self):
         node_model_1 = core.get_node_model(self.neo4jdb, handle_id='101')
