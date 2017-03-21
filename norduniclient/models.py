@@ -1,8 +1,14 @@
 # -*- coding: utf-8 -*-
 
+from six import text_type
 from functools import total_ordering
 from collections import defaultdict
-import core
+try:
+    # Python 2
+    import core
+except ImportError:  # Fix circular import in python 2 vs python 3
+    # Python 3
+    from norduniclient import core
 
 __author__ = 'lundberg'
 
@@ -19,9 +25,6 @@ class BaseRelationshipModel(object):
         self.end = None
 
     def __str__(self):
-        return unicode(self).encode('utf-8')
-
-    def __unicode__(self):
         return u'({start})-[{id}:{type}{data}]->({end}) in database {db}.'.format(
             start=self.start, type=self.type, id=self.id, data=self.data, end=self.end,
             db=self.manager.uri
@@ -58,9 +61,6 @@ class BaseNodeModel(object):
         self.data = None
 
     def __str__(self):
-        return unicode(self).encode('utf-8')
-
-    def __unicode__(self):
         labels = ':'.join(self.labels)
         return u'(node:{meta_type}:{labels} {data}) in database {db}.'.format(
             meta_type=self.meta_type, labels=labels, data=self.data, db=self.manager.uri
@@ -158,7 +158,7 @@ class BaseNodeModel(object):
             """.format(label=label)
         with self.manager.session as s:
             node = s.run(q, {'handle_id': self.handle_id}).single()['n']
-        return core.get_node_model(self.manager, node=node)
+        return self.reload(node=node)
 
     def remove_label(self, label):
         q = """
@@ -168,27 +168,27 @@ class BaseNodeModel(object):
             """.format(label=label)
         with self.manager.session as s:
             node = s.run(q, {'handle_id': self.handle_id}).single()['n']
-        return core.get_node_model(self.manager, node=node)
+        return self.reload(node=node)
 
     def change_meta_type(self, meta_type):
         if meta_type not in core.META_TYPES:
             raise core.exceptions.MetaLabelNamingError(meta_type)
         if meta_type == self.meta_type:
             return self
-        if self.remove_label(self.meta_type):
-            return self.add_label(meta_type)
+        model = self.remove_label(self.meta_type)
+        return model.add_label(meta_type)
 
     def switch_type(self, old_type, new_type):
         if old_type == new_type:
             return self
-        if self.remove_label(old_type):
-            return self.add_label(new_type)
+        model = self.remove_label(old_type)
+        return model.add_label(new_type)
 
     def delete(self):
         core.delete_node(self.manager, self.handle_id)
 
-    def reload(self):
-        return core.get_node_model(self.manager, self.handle_id)
+    def reload(self, node=None):
+        return core.get_node_model(self.manager, self.handle_id, node=node)
 
 
 class CommonQueries(BaseNodeModel):

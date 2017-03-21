@@ -1,4 +1,8 @@
 # -*- coding: utf-8 -*-
+from __future__ import absolute_import
+
+from six import text_type
+
 __author__ = 'lundberg'
 
 
@@ -14,7 +18,7 @@ def lowerstr(s):
     Makes everything to a string and tries to make it lower case. Also
     normalizes whitespace.
     """
-    return normalize_whitespace(unicode(s).lower())
+    return normalize_whitespace(text_type(s).lower())
 
 
 def update_item_properties(item_properties, new_properties):

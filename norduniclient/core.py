@@ -21,6 +21,7 @@
 from __future__ import absolute_import
 
 import re
+from six import text_type
 from neo4j.v1 import GraphDatabase, basic_auth
 from neo4j.v1.exceptions import ResultError, CypherError, ProtocolError
 
@@ -355,7 +356,7 @@ def get_nodes_by_value(manager, value, prop=None, node_type='Node'):
         with manager.session as s:
             for result in s.run(q):
                 for v in result['n'].properties.values():
-                    if pattern.search(unicode(v)):
+                    if pattern.search(text_type(v)):
                         yield result['n']
                         break
 
@@ -408,7 +409,7 @@ def search_nodes_by_value(manager, value, prop=None, node_type='Node'):
         with manager.session as s:
             for result in s.run(q):
                 for v in result['n'].properties.values():
-                    if pattern.search(unicode(v)):
+                    if pattern.search(text_type(v)):
                         yield result['n']
                         break
 
