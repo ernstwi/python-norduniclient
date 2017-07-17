@@ -656,7 +656,9 @@ class ModelsTests(Neo4jTestCase):
     def test_get_dependent_as_types_cable_model(self):
         cable1 = core.get_node_model(self.neo4jdb, handle_id='28')
         dependents = cable1.get_dependent_as_types()
-        self.assertEqual(dependents['links'][0]['name'], 'Optical Link1')
+
+        for optical_link in dependents['links']:
+            self.assertTrue(optical_link['name'] in ['Optical Link1', 'Optical Link2'])
         self.assertEqual(dependents['oms'], [])
         self.assertEqual(dependents['paths'][0]['name'], 'Optical Path1')
         self.assertEqual(dependents['services'][0]['name'], 'Service2')
@@ -708,3 +710,4 @@ class ModelsTests(Neo4jTestCase):
         customers = service2.get_customers()
         self.assertEqual(len(customers['customers']), 1)
         self.assertIsInstance(customers['customers'][0]['node'], models.CustomerModel)
+
