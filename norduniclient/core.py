@@ -51,6 +51,30 @@ except ImportError:
 META_TYPES = ['Physical', 'Logical', 'Relation', 'Location']
 
 
+class GraphDB(object):
+
+    _instance = None
+    _manager = None
+
+    @classmethod
+    def get_instance(cls):
+        if cls._instance is None:
+            cls._instance = cls()
+        return cls._instance
+
+    def __init__(self):
+        self._manager = self.manager
+
+    @property
+    def manager(self):
+        if self._manager is None:
+            try:
+                self._manager = init_db()
+            except ProtocolError:
+                self._manager = None
+        return self._manager
+
+
 def init_db(uri=NEO4J_URI, username=NEO4J_USERNAME, password=NEO4J_PASSWORD, encrypted=False):
     if uri:
         try:
@@ -60,15 +84,17 @@ def init_db(uri=NEO4J_URI, username=NEO4J_USERNAME, password=NEO4J_PASSWORD, enc
                 with manager.session as s:
                     s.run('CREATE CONSTRAINT ON (n:Node) ASSERT n.handle_id IS UNIQUE')
             except Exception as e:
+                logger.error('Could not create constraints for Neo4j database: {!s}'.format(uri))
                 raise e
             try:
                 create_index(manager, 'name')
             except Exception as e:
+                logger.error('Could not create index for Neo4j database: {!s}'.format(uri))
                 raise e
             return manager
-        except ProtocolError:
+        except ProtocolError as e:
             logger.warning('Could not connect to Neo4j database: {!s}'.format(uri))
-            return None
+            raise e
 
 
 def get_db_driver(uri, username=None, password=None, encrypted=True, max_pool_size=50, trust=0):
