@@ -51,13 +51,19 @@ class Neo4jTemporaryInstance(object):
         while self._http_port == self._bolt_port:
             self._http_port = random.randint(40000, 50000)
             self._bolt_port = random.randint(40000, 50000)
+        self._docker_exc = '/usr/bin/docker'
         self._docker_name = 'neo4j-{!s}'.format(self.bolt_port)
-        self._process = subprocess.Popen(['docker', 'run', '--rm', '--name', '{!s}'.format(self._docker_name),
-                                          '-p', '{!s}:7474'.format(self.http_port),
-                                          '-p', '{!s}:7687'.format(self.bolt_port),
-                                          'neo4j:{}'.format(neo4j_version)],
-                                         stdout=open('/tmp/neo4j-temp.log', 'wb'),
-                                         stderr=subprocess.STDOUT)
+        try:
+            self._process = subprocess.Popen([self._docker_exc, 'run', '--rm', '--name',
+                                              '{!s}'.format(self._docker_name),
+                                              '-p', '{!s}:7474'.format(self.http_port),
+                                              '-p', '{!s}:7687'.format(self.bolt_port),
+                                              'neo4j:{}'.format(neo4j_version)],
+                                             stdout=open('/tmp/neo4j-temp.log', 'wb'),
+                                             stderr=subprocess.STDOUT)
+        except OSError:
+            assert False, "No docker executable found (/usr/bin/docker)"
+
         self._host = 'localhost'
 
         for i in range(100):
