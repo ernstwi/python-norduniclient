@@ -45,7 +45,7 @@ except ImportError:
     NEO4J_URI, NEO4J_USERNAME, NEO4J_PASSWORD = None, None, None
     logger.info('Starting up without a Django environment.')
     logger.info('Initial: norduniclient.neo4jdb == None.')
-    logger.info('Use norduniclient.init_db(uri) to open a database connection.')
+    logger.info('Use norduniclient.init_db to open a database connection.')
 
 
 META_TYPES = ['Physical', 'Logical', 'Relation', 'Location']
@@ -73,6 +73,10 @@ class GraphDB(object):
             except ProtocolError:
                 self._manager = None
         return self._manager
+
+    @manager.setter
+    def manager(self, manager):
+        self._manager = manager
 
 
 def init_db(uri=NEO4J_URI, username=NEO4J_USERNAME, password=NEO4J_PASSWORD, encrypted=False):
