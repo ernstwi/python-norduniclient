@@ -269,12 +269,12 @@ def get_relationship(manager, relationship_id, legacy=True):
         RETURN r
         """
     with manager.session as s:
-        record = s.run(q, {'relationship_id': relationship_id}).single()
+        record = s.run(q, {'relationship_id': int(relationship_id)}).single()
         if record:
             if legacy:
                 return record['r'].properties
             return record['r']
-    raise exceptions.RelationshipNotFound(manager, relationship_id)
+    raise exceptions.RelationshipNotFound(manager, int(relationship_id))
 
 
 def get_relationship_bundle(manager, relationship_id=None, legacy=True):
@@ -295,14 +295,14 @@ def get_relationship_bundle(manager, relationship_id=None, legacy=True):
         """
 
     with manager.session as s:
-        record = s.run(q, {'relationship_id': relationship_id}).single()
+        record = s.run(q, {'relationship_id': int(relationship_id)}).single()
     if record is None:
-        raise exceptions.RelationshipNotFound(manager, relationship_id)
+        raise exceptions.RelationshipNotFound(manager, int(relationship_id))
 
     if legacy:
         bundle = {
             'type': record['r'].type,
-            'id': relationship_id,
+            'id': int(relationship_id),
             'data': record['r'].properties,
             'start': record['start'].properties['handle_id'],
             'end': record['end'].properties['handle_id'],
@@ -310,7 +310,7 @@ def get_relationship_bundle(manager, relationship_id=None, legacy=True):
     else:
         bundle = {
             'type': record['r'].type,
-            'id': relationship_id,
+            'id': int(relationship_id),
             'data': record['r'].properties,
             'start': record['start'],
             'end': record['end'],
@@ -332,7 +332,7 @@ def delete_relationship(manager, relationship_id):
         DELETE r
         """
     with manager.session as s:
-        s.run(q, {'relationship_id': relationship_id})
+        s.run(q, {'relationship_id': int(relationship_id)})
     return True
 
 
@@ -708,7 +708,7 @@ def set_relationship_properties(manager, relationship_id, new_properties):
         RETURN r
         """
     with manager.session as s:
-        return s.run(q, {'relationship_id': relationship_id, 'props': new_properties}).single()
+        return s.run(q, {'relationship_id': int(relationship_id), 'props': new_properties}).single()
 
 
 def get_node_model(manager, handle_id=None, node=None):
