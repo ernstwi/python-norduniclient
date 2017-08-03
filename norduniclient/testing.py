@@ -127,10 +127,10 @@ class Neo4jTemporaryInstance(object):
             time.sleep(1)
             con = http.HTTPConnection('{!s}:{!s}'.format(self.host, self.http_port), timeout=10)
             try:
-                con.request('GET', 'http://{!s}:{!s}/user/{!s}'.format(self.host, self.http_port, self.DEFAULT_USERNAME),
-                            headers=headers)
+                con.request('GET', 'http://{!s}:{!s}/user/{!s}'.format(self.host, self.http_port,
+                                                                       self.DEFAULT_USERNAME), headers=headers)
                 response = json.loads(con.getresponse().read().decode('utf-8'))
-            except ValueError:
+            except (ValueError, http.HTTPException):
                 con.close()
             retry += 1
             if retry > 10:

@@ -23,8 +23,7 @@ from __future__ import absolute_import
 import re
 from six import text_type
 from neo4j.v1 import GraphDatabase, basic_auth
-from neo4j.v1.exceptions import ResultError, CypherError, ProtocolError
-
+from neo4j.bolt import ProtocolError
 from norduniclient import exceptions
 from norduniclient import models
 
@@ -199,13 +198,14 @@ def get_node(manager, handle_id, legacy=True):
     :rtype: dict|neo4j.v1.types.Node
     """
     q = 'MATCH (n:Node { handle_id: {handle_id} }) RETURN n'
-    try:
-        with manager.session as s:
+
+    with manager.session as s:
+        result = s.run(q, {'handle_id': handle_id}).single()
+        if result:
             if legacy:
-                return s.run(q, {'handle_id': handle_id}).single()['n'].properties
-            return s.run(q, {'handle_id': handle_id}).single()['n']
-    except ResultError:
-        raise exceptions.NodeNotFound(manager, handle_id)
+                return result['n'].properties
+            return result['n']
+    raise exceptions.NodeNotFound(manager, handle_id)
 
 
 def get_node_bundle(manager, handle_id=None, node=None):
@@ -247,10 +247,7 @@ def delete_node(manager, handle_id):
         DELETE n,r
         """
     with manager.session as s:
-        try:
-            s.run(q, {'handle_id': handle_id}).single()
-        except ResultError:
-            pass
+        s.run(q, {'handle_id': handle_id})
     return True
 
 
@@ -266,14 +263,18 @@ def get_relationship(manager, relationship_id, legacy=True):
 
     :rtype int|neo4j.v1.types.Relationship
     """
-    q = 'START r=relationship({relationship_id}) RETURN r'
-    try:
-        with manager.session as s:
+    q = """
+        MATCH ()-[r]->()
+        WHERE ID(r) = {relationship_id}
+        RETURN r
+        """
+    with manager.session as s:
+        record = s.run(q, {'relationship_id': int(relationship_id)}).single()
+        if record:
             if legacy:
-                return s.run(q, {'relationship_id': relationship_id}).single()['r'].properties
-            return s.run(q, {'relationship_id': relationship_id}).single()['r']
-    except CypherError:
-        raise exceptions.RelationshipNotFound(manager, relationship_id)
+                return record['r'].properties
+            return record['r']
+    raise exceptions.RelationshipNotFound(manager, int(relationship_id))
 
 
 def get_relationship_bundle(manager, relationship_id=None, legacy=True):
@@ -287,21 +288,21 @@ def get_relationship_bundle(manager, relationship_id=None, legacy=True):
 
     :rtype: dictionary
     """
-    q = '''
-        START r=relationship({relationship_id})
+    q = """
         MATCH (start)-[r]->(end)
+        WHERE ID(r) = {relationship_id}
         RETURN start, r, end
-        '''
-    try:
-        with manager.session as s:
-            record = s.run(q, {'relationship_id': relationship_id}).single()
-    except CypherError:
-        raise exceptions.RelationshipNotFound(manager, relationship_id)
+        """
+
+    with manager.session as s:
+        record = s.run(q, {'relationship_id': int(relationship_id)}).single()
+    if record is None:
+        raise exceptions.RelationshipNotFound(manager, int(relationship_id))
 
     if legacy:
         bundle = {
             'type': record['r'].type,
-            'id': relationship_id,
+            'id': int(relationship_id),
             'data': record['r'].properties,
             'start': record['start'].properties['handle_id'],
             'end': record['end'].properties['handle_id'],
@@ -309,7 +310,7 @@ def get_relationship_bundle(manager, relationship_id=None, legacy=True):
     else:
         bundle = {
             'type': record['r'].type,
-            'id': relationship_id,
+            'id': int(relationship_id),
             'data': record['r'].properties,
             'start': record['start'],
             'end': record['end'],
@@ -325,13 +326,13 @@ def delete_relationship(manager, relationship_id):
     :param relationship_id: Internal Neo4j relationship id
     :return: bool
     """
-    q = 'START r=relationship({relationship_id}) DELETE r'
-
-    try:
-        with manager.session as s:
-            s.run(q, {'relationship_id': relationship_id})
-    except CypherError:
-        raise exceptions.RelationshipNotFound(manager, relationship_id)
+    q = """
+        MATCH ()-[r]->()
+        WHERE ID(r) = {relationship_id}
+        DELETE r
+        """
+    with manager.session as s:
+        s.run(q, {'relationship_id': int(relationship_id)})
     return True
 
 
@@ -367,21 +368,21 @@ def get_nodes_by_value(manager, value, prop=None, node_type='Node'):
     :return: dicts
     """
     if prop:
-        q = '''
+        q = """
             MATCH (n:{label})
             USING SCAN n:{label}
             WHERE n.{prop} = {{value}}
             RETURN distinct n
-            '''.format(label=node_type, prop=prop)
+            """.format(label=node_type, prop=prop)
 
         with manager.session as s:
             for result in s.run(q, {'value': value}):
                 yield result['n']
     else:
-        q = '''
+        q = """
             MATCH (n:{label})
             RETURN n
-            '''.format(label=node_type)
+            """.format(label=node_type)
         pattern = re.compile(u'{0}'.format(value), re.IGNORECASE)
         with manager.session as s:
             for result in s.run(q):
@@ -392,10 +393,10 @@ def get_nodes_by_value(manager, value, prop=None, node_type='Node'):
 
 
 def get_node_by_type(manager, node_type, legacy=True):
-    q = '''
+    q = """
         MATCH (n:{label})
         RETURN distinct n
-        '''.format(label=node_type)
+        """.format(label=node_type)
     with manager.session as s:
         for result in s.run(q):
             if legacy:
@@ -420,21 +421,21 @@ def search_nodes_by_value(manager, value, prop=None, node_type='Node'):
     :return: dicts
     """
     if prop:
-        q = '''
+        q = """
             MATCH (n:{label})
             USING SCAN n:{label}
             WHERE n.{prop} =~ "(?i).*{value}.*" OR any(x IN n.{prop} WHERE x =~ "(?i).*{value}.*")
             RETURN distinct n
-            '''.format(label=node_type, prop=prop, value=value)
+            """.format(label=node_type, prop=prop, value=value)
 
         with manager.session as s:
             for result in s.run(q):
                 yield result['n']
     else:
-        q = '''
+        q = """
             MATCH (n:{label})
             RETURN n
-            '''.format(label=node_type)
+            """.format(label=node_type)
         pattern = re.compile(u'{0}'.format(value), re.IGNORECASE)
         with manager.session as s:
             for result in s.run(q):
@@ -446,10 +447,10 @@ def search_nodes_by_value(manager, value, prop=None, node_type='Node'):
 
 # TODO: Try out elasticsearch
 def get_nodes_by_type(manager, node_type, legacy=True):
-    q = '''
+    q = """
         MATCH (n:{label})
         RETURN n
-        '''.format(label=node_type)
+        """.format(label=node_type)
     with manager.session as s:
         for result in s.run(q):
             if legacy:
@@ -460,10 +461,10 @@ def get_nodes_by_type(manager, node_type, legacy=True):
 
 # TODO: Try out elasticsearch
 def get_nodes_by_name(manager, name, legacy=True):
-    q = '''
+    q = """
         MATCH (n:Node {name: {name}})
         RETURN n
-        '''
+        """
     with manager.session as s:
         for result in s.run(q, {'name': name}):
             if legacy:
@@ -692,27 +693,22 @@ def set_node_properties(manager, handle_id, new_properties, legacy=True):
         SET n = {props}
         RETURN n
         """
-    try:
-        with manager.session as s:
-            if legacy:
-                return s.run(q, {'handle_id': handle_id, 'props': new_properties}).single()['n'].properties
-            return s.run(q, {'handle_id': handle_id, 'props': new_properties}).single()['n']
-    except ResultError:
-        raise exceptions.BadProperties(new_properties)
+    with manager.session as s:
+        if legacy:
+            return s.run(q, {'handle_id': handle_id, 'props': new_properties}).single()['n'].properties
+        return s.run(q, {'handle_id': handle_id, 'props': new_properties}).single()['n']
 
 
 def set_relationship_properties(manager, relationship_id, new_properties):
 
     q = """
-        START r=relationship({relationship_id})
+        MATCH ()-[r]->()
+        WHERE ID(r) = {relationship_id}
         SET r = {props}
         RETURN r
         """
-    try:
-        with manager.session as s:
-            return s.run(q, {'relationship_id': relationship_id, 'props': new_properties}).single()
-    except ResultError:
-        raise exceptions.BadProperties(new_properties)
+    with manager.session as s:
+        return s.run(q, {'relationship_id': int(relationship_id), 'props': new_properties}).single()
 
 
 def get_node_model(manager, handle_id=None, node=None):

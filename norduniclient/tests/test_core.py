@@ -2,8 +2,7 @@
 
 from __future__ import absolute_import
 
-from neo4j.v1.types import Node, Relationship
-from neo4j.v1.exceptions import CypherError, ResultError
+from neo4j.exceptions import ConstraintError
 
 from norduniclient.testing import Neo4jTestCase
 from norduniclient import core
@@ -30,7 +29,7 @@ class CoreTests(Neo4jTestCase):
         self.assertEqual(node.get('handle_id'), '3')
 
     def test_create_node_existing_node_handle(self):
-        self.assertRaises(CypherError, core.create_node, self.neo4jdb, name='Test Node 1',
+        self.assertRaises(ConstraintError, core.create_node, self.neo4jdb, name='Test Node 1',
                           meta_type_label='Logical', type_label='Test_Node', handle_id='1')
 
     def test_create_node_bad_meta_type(self):
@@ -63,6 +62,21 @@ class CoreTests(Neo4jTestCase):
     def test_failing_get_relationship(self):
         self.assertRaises(exceptions.RelationshipNotFound, core.get_relationship, self.neo4jdb, relationship_id=1)
 
+    def test_get_relationship_bundle(self):
+        relationship_id = core._create_relationship(self.neo4jdb, handle_id='1', other_handle_id='2', rel_type='Tests')
+        relationship_bundle = core.get_relationship_bundle(self.neo4jdb, relationship_id=relationship_id)
+        self.assertIsInstance(relationship_bundle, dict)
+        relationship = relationship_bundle.get('data')
+        self.assertIsInstance(relationship, dict)
+        self.assertEqual(relationship_bundle.get('id'), relationship_id)
+        self.assertEqual(relationship_bundle.get('start'), '1')
+        self.assertEqual(relationship_bundle.get('end'), '2')
+        self.assertEqual(relationship_bundle.get('type'), 'Tests')
+
+    def test_failing_get_relationship_bundle(self):
+        self.assertRaises(exceptions.RelationshipNotFound, core.get_relationship_bundle, self.neo4jdb,
+                          relationship_id=1)
+
     def test_delete_relationship(self):
         relationship_id = core._create_relationship(self.neo4jdb, handle_id='1', other_handle_id='2', rel_type='Tests')
         relationship = core.get_relationship(self.neo4jdb, relationship_id=relationship_id)
@@ -70,10 +84,6 @@ class CoreTests(Neo4jTestCase):
         core.delete_relationship(self.neo4jdb, relationship_id=relationship_id)
         self.assertRaises(exceptions.RelationshipNotFound, core.get_relationship, self.neo4jdb,
                           relationship_id=relationship_id)
-
-    def test_failing_delete_relationship(self):
-        self.assertRaises(exceptions.RelationshipNotFound, core.delete_relationship, self.neo4jdb,
-                          relationship_id=1)
 
     def test_create_location_relationship(self):
         core.create_node(self.neo4jdb, name='Location Node 1', meta_type_label='Location',
@@ -272,6 +282,11 @@ class CoreTests(Neo4jTestCase):
         new_properties.update({'handle_id': '1'})
         self.assertEqual(node, new_properties)
 
+#    def test_fail_set_node_properties(self):
+#        new_properties = {'test': set([])}
+#        self.assertRaises(exceptions.BadProperties, core.set_node_properties, self.neo4jdb,
+#                          handle_id='1', new_properties=new_properties)
+
     def test_set_relationship_properties(self):
         relationship_id = core.create_relationship(self.neo4jdb, handle_id='1', other_handle_id='2',
                                                    rel_type='Depends_on')
@@ -279,6 +294,13 @@ class CoreTests(Neo4jTestCase):
         core.set_relationship_properties(self.neo4jdb, relationship_id=relationship_id, new_properties=new_properties)
         relationship = core.get_relationship(self.neo4jdb, relationship_id=relationship_id)
         self.assertEqual(relationship, new_properties)
+
+#    def test_fail_set_relationship_properties(self):
+#        relationship_id = core.create_relationship(self.neo4jdb, handle_id='1', other_handle_id='2',
+#                                                   rel_type='Depends_on')
+#        new_properties = {'test': set([])}
+#        self.assertRaises(exceptions.BadProperties, core.set_relationship_properties, self.neo4jdb,
+#                          relationship_id=relationship_id, new_properties=new_properties)
 
     def test_get_node_model(self):
         node_model = core.get_node_model(self.neo4jdb, handle_id='1')
