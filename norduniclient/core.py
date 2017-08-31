@@ -423,26 +423,21 @@ def search_nodes_by_value(manager, value, prop=None, node_type='Node'):
     if prop:
         q = """
             MATCH (n:{label})
-            USING SCAN n:{label}
             WHERE n.{prop} =~ "(?i).*{value}.*" OR any(x IN n.{prop} WHERE x =~ "(?i).*{value}.*")
             RETURN distinct n
             """.format(label=node_type, prop=prop, value=value)
-
-        with manager.session as s:
-            for result in s.run(q):
-                yield result['n']
     else:
         q = """
             MATCH (n:{label})
-            RETURN n
-            """.format(label=node_type)
-        pattern = re.compile(u'{0}'.format(value), re.IGNORECASE)
-        with manager.session as s:
-            for result in s.run(q):
-                for v in result['n'].properties.values():
-                    if pattern.search(text_type(v)):
-                        yield result['n']
-                        break
+            WITH n, keys(n) as props
+            WHERE any(prop in props WHERE n[prop] =~ "(?i).*{value}.*") OR
+              any(prop in props WHERE any(x IN n[prop] WHERE x =~ "(?i).*{value}.*"))
+            RETURN distinct n
+            """.format(label=node_type, value=value)
+
+    with manager.session as s:
+        for result in s.run(q):
+            yield result['n']
 
 
 # TODO: Try out elasticsearch
