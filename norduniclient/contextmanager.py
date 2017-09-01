@@ -19,9 +19,9 @@ class Neo4jDBSessionManager:
     Neo4jDBSessionManager.transaction()
     """
 
-    def __init__(self, uri, username=None, password=None, encrypted=True):
+    def __init__(self, uri, username=None, password=None, encrypted=True, max_pool_size=50):
         self.uri = uri
-        self.driver = get_db_driver(uri, username, password, encrypted)
+        self.driver = get_db_driver(uri, username, password, encrypted, max_pool_size)
 
     @contextmanager
     def _session(self):

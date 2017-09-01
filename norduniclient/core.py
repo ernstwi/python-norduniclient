@@ -35,13 +35,23 @@ try:
     from django.core.exceptions import ImproperlyConfigured
     from django.conf import settings as django_settings
     try:
+        # Mandatory Django settings for quick init
         NEO4J_URI = django_settings.NEO4J_RESOURCE_URI
         NEO4J_USERNAME = django_settings.NEO4J_USERNAME
         NEO4J_PASSWORD = django_settings.NEO4J_PASSWORD
     except ImproperlyConfigured:
         NEO4J_URI, NEO4J_USERNAME, NEO4J_PASSWORD = None, None, None
+    try:
+        # Optional Django settings for quick init
+        MAX_POOL_SIZE = django_settings.NEO4J_MAX_POOL_SIZE
+        ENCRYPTED = django_settings.NEO4J_ENCRYPTED
+    except ImproperlyConfigured:
+        MAX_POOL_SIZE = 50
+        ENCRYPTED = False
 except ImportError:
     NEO4J_URI, NEO4J_USERNAME, NEO4J_PASSWORD = None, None, None
+    MAX_POOL_SIZE = 50
+    ENCRYPTED = False
     logger.info('Starting up without a Django environment.')
     logger.info('Initial: norduniclient.neo4jdb == None.')
     logger.info('Use norduniclient.init_db to open a database connection.')
@@ -78,11 +88,13 @@ class GraphDB(object):
         self._manager = manager
 
 
-def init_db(uri=NEO4J_URI, username=NEO4J_USERNAME, password=NEO4J_PASSWORD, encrypted=False):
+def init_db(uri=NEO4J_URI, username=NEO4J_USERNAME, password=NEO4J_PASSWORD, encrypted=ENCRYPTED,
+            max_pool_size=MAX_POOL_SIZE):
     if uri:
         try:
             from norduniclient.contextmanager import Neo4jDBSessionManager
-            manager = Neo4jDBSessionManager(uri=uri, username=username, password=password, encrypted=encrypted)
+            manager = Neo4jDBSessionManager(uri=uri, username=username, password=password, encrypted=encrypted,
+                                            max_pool_size=max_pool_size)
             try:
                 with manager.session as s:
                     s.run('CREATE CONSTRAINT ON (n:Node) ASSERT n.handle_id IS UNIQUE')
