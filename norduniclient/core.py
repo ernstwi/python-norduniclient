@@ -31,27 +31,28 @@ import logging
 logger = logging.getLogger(__name__)
 
 # Load Django settings
-try:
-    from django.core.exceptions import ImproperlyConfigured
+NEO4J_URI, NEO4J_USERNAME, NEO4J_PASSWORD = None, None, None
+MAX_POOL_SIZE = 50
+ENCRYPTED = False
+try:    
     from django.conf import settings as django_settings
     try:
         # Mandatory Django settings for quick init
         NEO4J_URI = django_settings.NEO4J_RESOURCE_URI
         NEO4J_USERNAME = django_settings.NEO4J_USERNAME
         NEO4J_PASSWORD = django_settings.NEO4J_PASSWORD
-    except ImproperlyConfigured:
-        NEO4J_URI, NEO4J_USERNAME, NEO4J_PASSWORD = None, None, None
+    except AttributeError:
+        pass
+    # Optional Django settings for quick init
     try:
-        # Optional Django settings for quick init
         MAX_POOL_SIZE = django_settings.NEO4J_MAX_POOL_SIZE
+    except AttributeError:
+        pass
+    try:
         ENCRYPTED = django_settings.NEO4J_ENCRYPTED
-    except ImproperlyConfigured:
-        MAX_POOL_SIZE = 50
-        ENCRYPTED = False
+    except AttributeError:
+        pass
 except ImportError:
-    NEO4J_URI, NEO4J_USERNAME, NEO4J_PASSWORD = None, None, None
-    MAX_POOL_SIZE = 50
-    ENCRYPTED = False
     logger.info('Starting up without a Django environment.')
     logger.info('Initial: norduniclient.neo4jdb == None.')
     logger.info('Use norduniclient.init_db to open a database connection.')
