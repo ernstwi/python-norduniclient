@@ -2,7 +2,10 @@
 
 from __future__ import absolute_import
 
-from neo4j.exceptions import ConstraintError
+try:
+    from neo4j.exceptions import ConstraintError
+except ImportError:
+    from neo4j.v1.api import CypherError as ConstraintError  # Backwards compatability with version <1.2
 
 from norduniclient.testing import Neo4jTestCase
 from norduniclient import core
