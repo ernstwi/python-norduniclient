@@ -39,13 +39,13 @@ try:
         NEO4J_URI = django_settings.NEO4J_RESOURCE_URI
         NEO4J_USERNAME = django_settings.NEO4J_USERNAME
         NEO4J_PASSWORD = django_settings.NEO4J_PASSWORD
-    except ImproperlyConfigured:
+    except AttributeError:
         NEO4J_URI, NEO4J_USERNAME, NEO4J_PASSWORD = None, None, None
     try:
         # Optional Django settings for quick init
         MAX_POOL_SIZE = django_settings.NEO4J_MAX_POOL_SIZE
         ENCRYPTED = django_settings.NEO4J_ENCRYPTED
-    except ImproperlyConfigured:
+    except AttributeError:
         MAX_POOL_SIZE = 50
         ENCRYPTED = False
 except ImportError:
