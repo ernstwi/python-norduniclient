@@ -3,7 +3,7 @@ from setuptools import setup, find_packages
 version = '1.0.18'
 
 requires = [
-    'neo4j-driver<1.5,0',
+    'neo4j-driver<1.5.0',
     'six>=1.10.0',
 ]
 
