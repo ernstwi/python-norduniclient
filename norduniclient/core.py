@@ -80,7 +80,8 @@ class GraphDB(object):
         if self._manager is None:
             try:
                 self._manager = init_db()
-            except ProtocolError:
+            except Exception as e:
+                logger.error('Could not create manager: {}'.format(e))
                 self._manager = None
         return self._manager
 
