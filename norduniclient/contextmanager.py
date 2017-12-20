@@ -31,7 +31,10 @@ class Neo4jDBSessionManager:
         except Exception as e:
             raise e
         finally:
-            session.close()
+            try:
+                session.close()
+            except Exception:
+                pass
     session = property(_session)
 
     @contextmanager
@@ -46,5 +49,8 @@ class Neo4jDBSessionManager:
         else:
             transaction.success = True
         finally:
-            session.close()
+            try:
+                session.close()
+            except Exception:
+                pass
     transaction = property(_transaction)
