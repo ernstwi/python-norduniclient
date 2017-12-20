@@ -482,7 +482,7 @@ class ModelsTests(Neo4jTestCase):
         rack_2 = core.get_node_model(self.neo4jdb, handle_id='15')
         located_in = rack_2.get_located_in()
         self.assertEqual(len(located_in['Located_in']), 2)
-        optical_node = [node for node in located_in['Located_in'] if node.data['name'] == 'Optical Node1'][0]
+        optical_node = [node for node in located_in['Located_in'] if node['node'].data['name'] == 'Optical Node1'][0]
         self.assertIsInstance(optical_node['node'], models.PhysicalModel)
         self.assertIsInstance(optical_node['relationship_id'], int)
 
