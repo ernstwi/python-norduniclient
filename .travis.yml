@@ -10,7 +10,7 @@ python:
   - '3.5'
 
 env:
-  - NEO4J_VERSION=3.2.2
+  - NEO4J_VERSION=3.3.2
   - NEO4J_VERSION=latest
 
 before_install:
@@ -29,5 +29,5 @@ deploy:
   on:
     tags: true
     repo: NORDUnet/python-norduniclient
-    condition: $NEO4J_VERSION=3.2.2
+    condition: $NEO4J_VERSION=3.3.2
     python: 2.7
