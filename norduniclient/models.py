@@ -761,7 +761,7 @@ class CableModel(PhysicalModel):
         q = """
             MATCH (n:Node {handle_id: {handle_id}})-[:Connected_to*1..20]-(equip)
             WITH DISTINCT equip
-            MATCH (equip)<-[:Depends_on*1..10]-(dep)
+            MATCH (equip)<-[:Part_of|Depends_on*1..10]-(dep)
             WITH collect(DISTINCT dep) as deps
             WITH deps, filter(n in deps WHERE n:Service) as services
             WITH deps, services, filter(n in deps WHERE n:Optical_Path) as paths
