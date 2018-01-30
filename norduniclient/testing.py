@@ -51,7 +51,7 @@ class Neo4jTemporaryInstance(object):
         while self._http_port == self._bolt_port:
             self._http_port = random.randint(40000, 50000)
             self._bolt_port = random.randint(40000, 50000)
-        self._docker_exc = '/usr/bin/docker'
+        self._docker_exc = 'docker'
         self._docker_name = 'neo4j-{!s}'.format(self.bolt_port)
         try:
             self._process = subprocess.Popen([self._docker_exc, 'run', '--rm', '--name',
@@ -62,12 +62,12 @@ class Neo4jTemporaryInstance(object):
                                              stdout=open('/tmp/neo4j-temp.log', 'wb'),
                                              stderr=subprocess.STDOUT)
         except OSError:
-            assert False, "No docker executable found (/usr/bin/docker)"
+            assert False, "No docker executable found"
 
         self._host = 'localhost'
 
-        for i in range(100):
-            time.sleep(0.2)
+        for i in range(300):
+            time.sleep(0.5)
             try:
                 if self.change_password():
                     self._db = init_db('bolt://{!s}:{!s}'.format(self.host, self.bolt_port), username='neo4j',

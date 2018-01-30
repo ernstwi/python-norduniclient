@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 
-from six import text_type
 from functools import total_ordering
 from collections import defaultdict
 try:
@@ -238,9 +237,10 @@ class CommonQueries(BaseNodeModel):
 
     def get_dependent_as_types(self):
         q = """
-            MATCH (node:Node {handle_id: {handle_id}})<-[:Depends_on]-(d)
+            MATCH (node:Node {handle_id: {handle_id}})
+            OPTIONAL MATCH (node)<-[:Depends_on]-(d)
             WITH node, collect(DISTINCT d) as direct
-            MATCH (node)<-[:Depends_on*1..20]-(dep)
+            MATCH (node)<-[:Part_of|Depends_on*1..20]-(dep)
             WITH direct, collect(DISTINCT dep) as deps
             WITH direct, deps, filter(n in deps WHERE n:Service) as services
             WITH direct, deps, services, filter(n in deps WHERE n:Optical_Path) as paths
@@ -252,7 +252,8 @@ class CommonQueries(BaseNodeModel):
 
     def get_dependencies_as_types(self):
         q = """
-            MATCH (node:Node {handle_id: {handle_id}})-[:Depends_on]->(d)
+            MATCH (node:Node {handle_id: {handle_id}})
+            OPTIONAL MATCH (node)-[:Depends_on]->(d)
             WITH node, collect(DISTINCT d) as direct
             MATCH (node)-[:Depends_on*1..20]->(dep)
             WITH node, direct, collect(DISTINCT dep) as deps
@@ -590,7 +591,8 @@ class HostModel(CommonQueries):
 
     def get_dependent_as_types(self):  # Does not return Host_Service as a direct dependent
         q = """
-            MATCH (node:Node {handle_id: {handle_id}})<-[:Depends_on]-(d)
+            MATCH (node:Node {handle_id: {handle_id}})
+            OPTIONAL MATCH (node)<-[:Depends_on]-(d)
             WITH node, filter(n in collect(DISTINCT d) WHERE NOT(n:Host_Service)) as direct
             MATCH (node)<-[:Depends_on*1..20]-(dep)
             WITH direct, collect(DISTINCT dep) as deps
@@ -891,4 +893,3 @@ class CustomerModel(RelationModel):
 
 class ProviderModel(RelationModel):
     pass
-

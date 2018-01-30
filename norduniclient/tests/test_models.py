@@ -310,6 +310,16 @@ class ModelsTests(Neo4jTestCase):
         self.assertEqual(dependents['paths'], [])
         self.assertEqual(dependents['services'], [])
 
+    def test_get_dependent_as_types_port_with_unit_services(self):
+        port6 = core.get_node_model(self.neo4jdb, handle_id='4')
+        dependent = port6.get_dependent_as_types()
+        self.assertEqual(dependent['direct'], [])
+        self.assertEqual(dependent['links'], [])
+        self.assertEqual(dependent['oms'], [])
+        self.assertEqual(dependent['paths'], [])
+        self.assertEqual(len(dependent['services']), 1)
+        self.assertEqual(dependent['services'][0]['name'], 'Service3')
+
     def test_get_dependencies_as_types(self):
         logical4 = core.get_node_model(self.neo4jdb, handle_id='111')
         dependencies = logical4.get_dependencies_as_types()
