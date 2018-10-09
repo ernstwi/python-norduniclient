@@ -526,7 +526,7 @@ def get_indexed_node(manager, prop, value, node_type='Node', lookup_func='CONTAI
     """
     q = """
         MATCH (n:{label})
-        WHERE n.{prop} {lookup_func} {{value}}
+        WHERE LOWER(n.{prop}) {lookup_func} LOWER({{value}})
         RETURN n
         """.format(label=node_type, prop=prop, lookup_func=lookup_func)
     with manager.session as s:
