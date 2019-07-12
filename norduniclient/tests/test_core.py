@@ -317,93 +317,97 @@ class CoreTests(Neo4jTestCase):
         new_properties = {'test': 'hello world'}
         core.set_node_properties(self.neo4jdb, handle_id='1', new_properties=new_properties)
         result = core.get_nodes_by_value(self.neo4jdb, value='hello world', prop='test')
-        self.assertIsNotNone(result)
-        for node in result:
-            self.assertEqual(node.get('test'), 'hello world')
-            return
-        self.assertTrue(False, 'Nothing found')
+
+        all_results = [r for r in result]
+        self.assertEqual(len(all_results), 1)
+        node = all_results[0]
+        self.assertEqual(node.get('test'), 'hello world')
 
     def test_get_nodes_by_value_and_property_list(self):
         new_properties = {'test': ['hello', 'world']}
         core.set_node_properties(self.neo4jdb, handle_id='1', new_properties=new_properties)
         result = core.get_nodes_by_value(self.neo4jdb, value=['hello', 'world'], prop='test')
-        for node in result:
-            self.assertEqual(node.get('test'), ['hello', 'world'])
-            return
-        self.assertTrue(False, 'Nothing found')
+
+        all_results = [r for r in result]
+        self.assertEqual(len(all_results), 1)
+        node = all_results[0]
+        self.assertEqual(node.get('test'), ['hello', 'world'])
 
     def test_get_nodes_by_value_and_property_bool(self):
         new_properties = {'test': False}
         core.set_node_properties(self.neo4jdb, handle_id='1', new_properties=new_properties)
         result = core.get_nodes_by_value(self.neo4jdb, value=False, prop='test')
-        for node in result:
-            self.assertEqual(node.get('test'), False)
-            return
-        self.assertTrue(False, 'Nothing found')
+
+        all_results = [r for r in result]
+        self.assertEqual(len(all_results), 1)
+        node = all_results[0]
+        self.assertEqual(node.get('test'), False)
 
     def test_get_nodes_by_value_and_property_int(self):
         new_properties = {'test': 3}
         core.set_node_properties(self.neo4jdb, handle_id='1', new_properties=new_properties)
         result = core.get_nodes_by_value(self.neo4jdb, value=3, prop='test')
-        for node in result:
-            self.assertEqual(node.get('test'), 3)
-            return
-        self.assertTrue(False, 'Nothing found')
+
+        all_results = [r for r in result]
+        self.assertEqual(len(all_results), 1)
+        node = all_results[0]
+        self.assertEqual(node.get('test'), 3)
 
     def test_search_nodes_by_value(self):
         new_properties = {'test': 'hello world'}
         core.set_node_properties(self.neo4jdb, handle_id='1', new_properties=new_properties)
 
         result = core.search_nodes_by_value(self.neo4jdb, value='world')
-        self.assertIsNotNone(result)
-        for node in result:
-            self.assertEqual(node.get('test'), 'hello world')
-            return
-        self.assertTrue(False, 'Nothing found')
+
+        all_results = [r for r in result]
+        self.assertEqual(len(all_results), 1)
+        node = all_results[0]
+        self.assertEqual(node.get('test'), 'hello world')
 
     def test_search_nodes_by_value_and_property(self):
         new_properties = {'test': 'hello world'}
         core.set_node_properties(self.neo4jdb, handle_id='1', new_properties=new_properties)
         result = core.search_nodes_by_value(self.neo4jdb, value='world', prop='test')
-        self.assertIsNotNone(result)
-        for node in result:
-            self.assertEqual(node.get('test'), 'hello world')
-            return
-        self.assertTrue(False, 'Nothing found')
+
+        all_results = [r for r in result]
+        self.assertEqual(len(all_results), 1)
+        node = all_results[0]
+        self.assertEqual(node.get('test'), 'hello world')
 
     def test_search_nodes_by_value_in_list(self):
         new_properties = {'test': ['hello', 'world']}
         core.set_node_properties(self.neo4jdb, handle_id='1', new_properties=new_properties)
 
         result = core.search_nodes_by_value(self.neo4jdb, value='hel')
-        self.assertIsNotNone(result)
-        for node in result:
-            self.assertEqual(node.get('test'), ['hello', 'world'])
-            return
-        self.assertTrue(False, 'Nothing found')
+
+        all_results = [r for r in result]
+        self.assertEqual(len(all_results), 1)
+        node = all_results[0]
+        self.assertEqual(node.get('test'), ['hello', 'world'])
 
     def test_search_nodes_by_value_and_property_in_list(self):
         new_properties = {'test': ['hello', 'world']}
         core.set_node_properties(self.neo4jdb, handle_id='1', new_properties=new_properties)
         result = core.search_nodes_by_value(self.neo4jdb, value='hel', prop='test')
-        for node in result:
-            self.assertEqual(node.get('test'), ['hello', 'world'])
-            return
-        self.assertTrue(False, 'Nothing found')
+
+        all_results = [r for r in result]
+        self.assertEqual(len(all_results), 1)
+        node = all_results[0]
+        self.assertEqual(node.get('test'), ['hello', 'world'])
 
     def test_get_nodes_by_type(self):
         result = core.get_nodes_by_type(self.neo4jdb, 'Test_Node')
+
         for node in result:
             self.assertIn('Test_Node', node.labels)
-            return
-        self.assertTrue(False, 'Nothing found')
 
     def test_get_nodes_by_name(self):
         result = core.get_nodes_by_name(self.neo4jdb, 'Test Node 1')
-        for node in result:
-            self.assertEqual(node['name'], 'Test Node 1')
-            return
-        self.assertTrue(False, 'Nothing found')
+
+        all_results = [r for r in result]
+        self.assertEqual(len(all_results), 1)
+        node = all_results[0]
+        self.assertEqual(node['name'], 'Test Node 1')
 
     def test_get_unique_node_by_name(self):
         node_model = core.get_unique_node_by_name(self.neo4jdb, node_name='Test Node 1', node_type='Test_Node')
