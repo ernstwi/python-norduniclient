@@ -70,8 +70,8 @@ class CoreTests(Neo4jTestCase):
         relationship = relationship_bundle.get('data')
         self.assertIsNotNone(relationship)
         self.assertEqual(relationship_bundle.get('id'), relationship_id)
-        self.assertEqual(relationship_bundle.get('start'), '1')
-        self.assertEqual(relationship_bundle.get('end'), '2')
+        self.assertEqual(relationship_bundle.get('start')['handle_id'], '1')
+        self.assertEqual(relationship_bundle.get('end')['handle_id'], '2')
         self.assertEqual(relationship_bundle.get('type'), 'Tests')
 
     def test_failing_get_relationship_bundle(self):
@@ -265,10 +265,10 @@ class CoreTests(Neo4jTestCase):
                                                    rel_type='Depends_on')
 
         relationships = core.get_relationships(self.neo4jdb, handle_id1='1', handle_id2='2')
-        self.assertIn(relationship_id, relationships)
+        self.assertIn(relationship_id, [r.id for r in relationships])
 
         relationships = core.get_relationships(self.neo4jdb, handle_id1='1', handle_id2='2', rel_type='Depends_on')
-        self.assertIn(relationship_id, relationships)
+        self.assertIn(relationship_id, [r.id for r in relationships])
 
         # No relationship
         core.create_node(self.neo4jdb, name='Location Node 1', meta_type_label='Location',

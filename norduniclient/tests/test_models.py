@@ -220,8 +220,8 @@ class ModelsTests(Neo4jTestCase):
                 self.assertIsNotNone(relationship_model.type)
                 self.assertIsInstance(relationship_model.id, int)
                 self.assertIsNotNone(relationship_model.data)
-                self.assertEqual(relationship_model.start, node_model_1.handle_id)
-                self.assertEqual(relationship_model.end, item['node'].handle_id)
+                self.assertEqual(relationship_model.start['handle_id'], node_model_1.handle_id)
+                self.assertEqual(relationship_model.end['handle_id'], item['node'].handle_id)
 
     def test_get_location_path(self):
         # Model with location
