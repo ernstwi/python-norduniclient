@@ -23,7 +23,7 @@ from __future__ import absolute_import
 import re
 from six import text_type
 from neo4j.v1 import GraphDatabase, basic_auth
-from neo4j.bolt import ProtocolError
+from neo4j.exceptions import ProtocolError
 from norduniclient import exceptions
 from norduniclient import models
 
