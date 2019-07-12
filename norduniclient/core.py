@@ -167,7 +167,7 @@ def query_to_iterator(manager, query, **kwargs):
             yield d
 
 
-def create_node(manager, name, meta_type_label, type_label, handle_id, legacy=True):
+def create_node(manager, name, meta_type_label, type_label, handle_id, legacy=False):
     """
     Creates a node with the mandatory attributes name and handle_id also sets type label.
 
@@ -199,7 +199,7 @@ def create_node(manager, name, meta_type_label, type_label, handle_id, legacy=Tr
         return s.run(q, {'name': name, 'handle_id': handle_id}).single()['n']
 
 
-def get_node(manager, handle_id, legacy=True):
+def get_node(manager, handle_id, legacy=False):
     """
     :param manager: Manager to handle sessions and transactions
     :param handle_id: Unique id
@@ -234,7 +234,7 @@ def get_node_bundle(manager, handle_id=None, node=None):
     if not node:
         node = get_node(manager, handle_id=handle_id, legacy=False)
     d = {
-        'data': node.properties
+        'data': node
     }
     labels = list(node.labels)
     labels.remove('Node')  # All nodes have this label for indexing
@@ -265,7 +265,7 @@ def delete_node(manager, handle_id):
     return True
 
 
-def get_relationship(manager, relationship_id, legacy=True):
+def get_relationship(manager, relationship_id, legacy=False):
     """
     :param manager: Manager to handle sessions and transactions
     :param relationship_id: Unique id
@@ -317,15 +317,15 @@ def get_relationship_bundle(manager, relationship_id=None, legacy=True):
         bundle = {
             'type': record['r'].type,
             'id': int(relationship_id),
-            'data': record['r'].properties,
-            'start': record['start'].properties['handle_id'],
-            'end': record['end'].properties['handle_id'],
+            'data': record['r'],
+            'start': record['start']['handle_id'],
+            'end': record['end']['handle_id'],
         }
     else:
         bundle = {
             'type': record['r'].type,
             'id': int(relationship_id),
-            'data': record['r'].properties,
+            'data': record['r'],
             'start': record['start'],
             'end': record['end'],
         }
@@ -400,13 +400,13 @@ def get_nodes_by_value(manager, value, prop=None, node_type='Node'):
         pattern = re.compile(u'{0}'.format(value), re.IGNORECASE)
         with manager.session as s:
             for result in s.run(q):
-                for v in result['n'].properties.values():
+                for v in result['n'].values():
                     if pattern.search(text_type(v)):
                         yield result['n']
                         break
 
 
-def get_node_by_type(manager, node_type, legacy=True):
+def get_node_by_type(manager, node_type, legacy=False):
     q = """
         MATCH (n:{label})
         RETURN distinct n
@@ -455,7 +455,7 @@ def search_nodes_by_value(manager, value, prop=None, node_type='Node'):
 
 
 # TODO: Try out elasticsearch
-def get_nodes_by_type(manager, node_type, legacy=True):
+def get_nodes_by_type(manager, node_type, legacy=False):
     q = """
         MATCH (n:{label})
         RETURN n
@@ -469,7 +469,7 @@ def get_nodes_by_type(manager, node_type, legacy=True):
 
 
 # TODO: Try out elasticsearch
-def get_nodes_by_name(manager, name, legacy=True):
+def get_nodes_by_name(manager, name, legacy=False):
     q = """
         MATCH (n:Node {name: {name}})
         RETURN n
@@ -505,7 +505,7 @@ def create_index(manager, prop, node_type='Node'):
         s.run('CREATE INDEX ON :{node_type}({prop})'.format(node_type=node_type, prop=prop))
 
 
-def get_indexed_node(manager, prop, value, node_type='Node', lookup_func='CONTAINS', legacy=True):
+def get_indexed_node(manager, prop, value, node_type='Node', lookup_func='CONTAINS', legacy=False):
     """
     :param manager: Neo4jDBSessionManager
     :param prop: Indexed property
@@ -694,7 +694,7 @@ def get_relationships(manager, handle_id1, handle_id2, rel_type=None, legacy=Tru
         return s.run(q, {'handle_id1': handle_id1, 'handle_id2': handle_id2}).single()['relationships']
 
 
-def set_node_properties(manager, handle_id, new_properties, legacy=True):
+def set_node_properties(manager, handle_id, new_properties, legacy=False):
     new_properties['handle_id'] = handle_id  # Make sure the handle_id can't be changed
 
     q = """
