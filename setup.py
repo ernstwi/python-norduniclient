@@ -4,7 +4,6 @@ version = '1.1.3'
 
 requires = [
     'neo4j-driver<2.0',
-    'six>=1.10.0',
 ]
 
 testing_requires = [

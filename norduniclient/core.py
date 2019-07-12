@@ -20,8 +20,6 @@
 
 from __future__ import absolute_import
 
-import re
-from six import text_type
 from neo4j.v1 import GraphDatabase, basic_auth
 from neo4j.exceptions import ProtocolError
 from norduniclient import exceptions
@@ -34,7 +32,7 @@ logger = logging.getLogger(__name__)
 NEO4J_URI, NEO4J_USERNAME, NEO4J_PASSWORD = None, None, None
 MAX_POOL_SIZE = 50
 ENCRYPTED = False
-try:    
+try:
     from django.conf import settings as django_settings
     try:
         # Mandatory Django settings for quick init
@@ -146,15 +144,15 @@ def query_to_dict(manager, query, **kwargs):
 
 
 def query_to_list(manager, query, **kwargs):
-    l = []
+    out = []
     with manager.session as s:
         result = s.run(query, kwargs)
         for record in result:
             d = {}
             for key, value in record.items():
                 d[key] = value
-            l.append(d)
-    return l
+            out.append(d)
+    return out
 
 
 def query_to_iterator(manager, query, **kwargs):
