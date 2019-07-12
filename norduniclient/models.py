@@ -116,7 +116,7 @@ class BaseNodeModel(object):
                     key = record['key']
                 d[key].append({
                     'relationship_id': relationship.id,
-                    'relationship': relationship.properties,
+                    'relationship': relationship,
                     'node': core.get_node_model(self.manager, node=node)
                 })
         d.default_factory = None
@@ -137,7 +137,7 @@ class BaseNodeModel(object):
                 d[key].append({
                     'created': created,
                     'relationship_id': relationship.id,
-                    'relationship': relationship.properties,
+                    'relationship': relationship,
                     'node': core.get_node_model(self.manager, node=node)
                 })
         d.default_factory = None

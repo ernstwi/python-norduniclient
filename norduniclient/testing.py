@@ -133,7 +133,7 @@ class Neo4jTemporaryInstance(object):
             except (ValueError, http.HTTPException):
                 con.close()
             retry += 1
-            if retry > 10:
+            if retry > 20:
                 print("Could not change password for user neo4j")
                 con.close()
                 return False

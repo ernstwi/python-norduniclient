@@ -20,10 +20,8 @@
 
 from __future__ import absolute_import
 
-import re
-from six import text_type
 from neo4j.v1 import GraphDatabase, basic_auth
-from neo4j.bolt import ProtocolError
+from neo4j.exceptions import ProtocolError
 from norduniclient import exceptions
 from norduniclient import models
 
@@ -34,7 +32,7 @@ logger = logging.getLogger(__name__)
 NEO4J_URI, NEO4J_USERNAME, NEO4J_PASSWORD = None, None, None
 MAX_POOL_SIZE = 50
 ENCRYPTED = False
-try:    
+try:
     from django.conf import settings as django_settings
     try:
         # Mandatory Django settings for quick init
@@ -146,15 +144,15 @@ def query_to_dict(manager, query, **kwargs):
 
 
 def query_to_list(manager, query, **kwargs):
-    l = []
+    out = []
     with manager.session as s:
         result = s.run(query, kwargs)
         for record in result:
             d = {}
             for key, value in record.items():
                 d[key] = value
-            l.append(d)
-    return l
+            out.append(d)
+    return out
 
 
 def query_to_iterator(manager, query, **kwargs):
@@ -167,7 +165,7 @@ def query_to_iterator(manager, query, **kwargs):
             yield d
 
 
-def create_node(manager, name, meta_type_label, type_label, handle_id, legacy=True):
+def create_node(manager, name, meta_type_label, type_label, handle_id):
     """
     Creates a node with the mandatory attributes name and handle_id also sets type label.
 
@@ -176,14 +174,12 @@ def create_node(manager, name, meta_type_label, type_label, handle_id, legacy=Tr
     :param meta_type_label: Node meta type
     :param type_label: Node label
     :param handle_id: Unique id
-    :param legacy: Backwards compatibility
 
     :type manager: norduniclient.contextmanager.Neo4jDBSessionManager
     :type name: str|unicode
     :type meta_type_label: str|unicode
     :type type_label: str|unicode
     :type handle_id: str|unicode
-    :type legacy: Boolean
 
     :rtype: dict|neo4j.v1.types.Node
     """
@@ -194,20 +190,16 @@ def create_node(manager, name, meta_type_label, type_label, handle_id, legacy=Tr
         RETURN n
         """ % (meta_type_label, type_label)
     with manager.session as s:
-        if legacy:
-            return s.run(q, {'name': name, 'handle_id': handle_id}).single()['n'].properties
         return s.run(q, {'name': name, 'handle_id': handle_id}).single()['n']
 
 
-def get_node(manager, handle_id, legacy=True):
+def get_node(manager, handle_id):
     """
     :param manager: Manager to handle sessions and transactions
     :param handle_id: Unique id
-    :param legacy: Backwards compatibility
 
     :type manager: norduniclient.contextmanager.Neo4jDBSessionManager
     :type handle_id: str|unicode
-    :type legacy: Boolean
 
     :rtype: dict|neo4j.v1.types.Node
     """
@@ -216,8 +208,6 @@ def get_node(manager, handle_id, legacy=True):
     with manager.session as s:
         result = s.run(q, {'handle_id': handle_id}).single()
         if result:
-            if legacy:
-                return result['n'].properties
             return result['n']
     raise exceptions.NodeNotFound(manager, handle_id)
 
@@ -232,9 +222,9 @@ def get_node_bundle(manager, handle_id=None, node=None):
     :return: dict
     """
     if not node:
-        node = get_node(manager, handle_id=handle_id, legacy=False)
+        node = get_node(manager, handle_id=handle_id)
     d = {
-        'data': node.properties
+        'data': node
     }
     labels = list(node.labels)
     labels.remove('Node')  # All nodes have this label for indexing
@@ -265,15 +255,13 @@ def delete_node(manager, handle_id):
     return True
 
 
-def get_relationship(manager, relationship_id, legacy=True):
+def get_relationship(manager, relationship_id):
     """
     :param manager: Manager to handle sessions and transactions
     :param relationship_id: Unique id
-    :param legacy: Backwards compatibility
 
     :type manager: norduniclient.contextmanager.Neo4jDBSessionManager
     :type relationship_id: int
-    :type legacy: Boolean
 
     :rtype int|neo4j.v1.types.Relationship
     """
@@ -285,20 +273,16 @@ def get_relationship(manager, relationship_id, legacy=True):
     with manager.session as s:
         record = s.run(q, {'relationship_id': int(relationship_id)}).single()
         if record:
-            if legacy:
-                return record['r'].properties
             return record['r']
     raise exceptions.RelationshipNotFound(manager, int(relationship_id))
 
 
-def get_relationship_bundle(manager, relationship_id=None, legacy=True):
+def get_relationship_bundle(manager, relationship_id=None):
     """
     :param manager: Neo4jDBSessionManager
     :param relationship_id: Internal Neo4j id
-    :param legacy: Backwards compatibility
 
     :type relationship_id: int
-    :type legacy: bool
 
     :rtype: dictionary
     """
@@ -313,23 +297,13 @@ def get_relationship_bundle(manager, relationship_id=None, legacy=True):
     if record is None:
         raise exceptions.RelationshipNotFound(manager, int(relationship_id))
 
-    if legacy:
-        bundle = {
-            'type': record['r'].type,
-            'id': int(relationship_id),
-            'data': record['r'].properties,
-            'start': record['start'].properties['handle_id'],
-            'end': record['end'].properties['handle_id'],
-        }
-    else:
-        bundle = {
-            'type': record['r'].type,
-            'id': int(relationship_id),
-            'data': record['r'].properties,
-            'start': record['start'],
-            'end': record['end'],
-        }
-    return bundle
+    return {
+        'type': record['r'].type,
+        'id': int(relationship_id),
+        'data': record['r'],
+        'start': record['start'],
+        'end': record['end'],
+    }
 
 
 def delete_relationship(manager, relationship_id):
@@ -358,7 +332,7 @@ def get_node_meta_type(manager, handle_id):
     :param handle_id: Unique id
     :return: string
     """
-    node = get_node(manager=manager, handle_id=handle_id, legacy=False)
+    node = get_node(manager=manager, handle_id=handle_id)
     for label in node.labels:
         if label in META_TYPES:
             return label
@@ -366,7 +340,7 @@ def get_node_meta_type(manager, handle_id):
 
 
 # TODO: Try out elasticsearch
-def get_nodes_by_value(manager, value, prop=None, node_type='Node'):
+def get_nodes_by_value(manager, value, prop, node_type='Node'):
     """
     Traverses all nodes or nodes of specified label and compares the property/properties of the node
     with the supplied string.
@@ -381,42 +355,25 @@ def get_nodes_by_value(manager, value, prop=None, node_type='Node'):
     :type node_type: str
     :return: dicts
     """
-    if prop:
-        q = """
-            MATCH (n:{label})
-            USING SCAN n:{label}
-            WHERE n.{prop} = {{value}}
-            RETURN distinct n
-            """.format(label=node_type, prop=prop)
+    q = """
+        MATCH (n:{label})
+        WHERE n.{prop} = {{value}}
+        RETURN distinct n
+        """.format(label=node_type, prop=prop)
 
-        with manager.session as s:
-            for result in s.run(q, {'value': value}):
-                yield result['n']
-    else:
-        q = """
-            MATCH (n:{label})
-            RETURN n
-            """.format(label=node_type)
-        pattern = re.compile(u'{0}'.format(value), re.IGNORECASE)
-        with manager.session as s:
-            for result in s.run(q):
-                for v in result['n'].properties.values():
-                    if pattern.search(text_type(v)):
-                        yield result['n']
-                        break
+    with manager.session as s:
+        for result in s.run(q, {'value': value}):
+            yield result['n']
 
 
-def get_node_by_type(manager, node_type, legacy=True):
+def get_node_by_type(manager, node_type):
     q = """
         MATCH (n:{label})
         RETURN distinct n
         """.format(label=node_type)
     with manager.session as s:
         for result in s.run(q):
-            if legacy:
-                yield result['n'].properties
-            else:
-                yield result['n']
+            yield result['n']
 
 
 def search_nodes_by_value(manager, value, prop=None, node_type='Node'):
@@ -455,40 +412,25 @@ def search_nodes_by_value(manager, value, prop=None, node_type='Node'):
 
 
 # TODO: Try out elasticsearch
-def get_nodes_by_type(manager, node_type, legacy=True):
+def get_nodes_by_type(manager, node_type):
     q = """
         MATCH (n:{label})
         RETURN n
         """.format(label=node_type)
     with manager.session as s:
         for result in s.run(q):
-            if legacy:
-                yield result['n'].properties
-            else:
-                yield result['n']
+            yield result['n']
 
 
 # TODO: Try out elasticsearch
-def get_nodes_by_name(manager, name, legacy=True):
+def get_nodes_by_name(manager, name):
     q = """
         MATCH (n:Node {name: {name}})
         RETURN n
         """
     with manager.session as s:
         for result in s.run(q, {'name': name}):
-            if legacy:
-                yield result['n'].properties
-            else:
-                yield result['n']
-
-
-def legacy_node_index_search(manager, lucene_query):
-    """
-    :param manager: Neo4jDBSessionManager
-    :param lucene_query: string
-    :return: dict
-    """
-    raise NotImplementedError('Legacy index removed from Neo4j 3.0')
+            yield result['n']
 
 
 def create_index(manager, prop, node_type='Node'):
@@ -505,21 +447,19 @@ def create_index(manager, prop, node_type='Node'):
         s.run('CREATE INDEX ON :{node_type}({prop})'.format(node_type=node_type, prop=prop))
 
 
-def get_indexed_node(manager, prop, value, node_type='Node', lookup_func='CONTAINS', legacy=True):
+def get_indexed_node(manager, prop, value, node_type='Node', lookup_func='CONTAINS'):
     """
     :param manager: Neo4jDBSessionManager
     :param prop: Indexed property
     :param value: Indexed value
     :param node_type: Label used for index
     :param lookup_func: STARTS WITH | CONTAINS | ENDS WITH
-    :param legacy: Backwards compatibility
 
     :type manager: Neo4jDBSessionManager
     :type prop: str
     :type value: str
     :type node_type: str
     :type lookup_func: str
-    :type legacy: bool
 
     :return: Dict or Node object
     :rtype: dict|Node
@@ -531,10 +471,7 @@ def get_indexed_node(manager, prop, value, node_type='Node', lookup_func='CONTAI
         """.format(label=node_type, prop=prop, lookup_func=lookup_func)
     with manager.session as s:
         for result in s.run(q, {'value': value}):
-            if legacy:
-                yield result['n'].properties
-            else:
-                yield result['n']
+            yield result['n']
 
 
 def get_unique_node_by_name(manager, node_name, node_type):
@@ -562,19 +499,17 @@ def get_unique_node_by_name(manager, node_name, node_type):
     return None
 
 
-def _create_relationship(manager, handle_id, other_handle_id, rel_type, legacy=True):
+def _create_relationship(manager, handle_id, other_handle_id, rel_type):
     """
     :param manager: Context manager to handle transactions
     :param handle_id: Node handle id
     :param other_handle_id: Other node handle id
     :param rel_type: Relationship type
-    :param legacy: Backwards compatibility
 
     :type manager: Neo4jDBSessionManager
     :type handle_id: str|unicode
     :type other_handle_id: str|unicode
     :type rel_type: str|unicode
-    :type legacy: Boolean
 
     :rtype: int|neo4j.v1.types.Relationship
     """
@@ -586,9 +521,7 @@ def _create_relationship(manager, handle_id, other_handle_id, rel_type, legacy=T
         """ % rel_type
 
     with manager.session as s:
-        if legacy:
-            return s.run(q, {'start': handle_id, 'end': other_handle_id}).single()['r'].id
-        return s.run(q, {'start': handle_id, 'end': other_handle_id}).single()['r']
+        return s.run(q, {'start': handle_id, 'end': other_handle_id}).single()['r'].id
 
 
 def create_location_relationship(manager, location_handle_id, other_handle_id, rel_type):
@@ -671,7 +604,7 @@ def create_relationship(manager, handle_id, other_handle_id, rel_type):
     raise exceptions.NoRelationshipPossible(handle_id, meta_type, other_handle_id, other_meta_type, rel_type)
 
 
-def get_relationships(manager, handle_id1, handle_id2, rel_type=None, legacy=True):
+def get_relationships(manager, handle_id1, handle_id2, rel_type=None):
     """
     Takes a start and an end node with an optional relationship
     type.
@@ -688,13 +621,10 @@ def get_relationships(manager, handle_id1, handle_id2, rel_type=None, legacy=Tru
             RETURN collect(r) as relationships
             """
     with manager.session as s:
-        if legacy:
-            relationships = s.run(q, {'handle_id1': handle_id1, 'handle_id2': handle_id2}).single()['relationships']
-            return [relationship.id for relationship in relationships]
         return s.run(q, {'handle_id1': handle_id1, 'handle_id2': handle_id2}).single()['relationships']
 
 
-def set_node_properties(manager, handle_id, new_properties, legacy=True):
+def set_node_properties(manager, handle_id, new_properties):
     new_properties['handle_id'] = handle_id  # Make sure the handle_id can't be changed
 
     q = """
@@ -703,8 +633,6 @@ def set_node_properties(manager, handle_id, new_properties, legacy=True):
         RETURN n
         """
     with manager.session as s:
-        if legacy:
-            return s.run(q, {'handle_id': handle_id, 'props': new_properties}).single()['n'].properties
         return s.run(q, {'handle_id': handle_id, 'props': new_properties}).single()['n']
 
 

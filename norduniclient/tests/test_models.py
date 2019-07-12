@@ -156,14 +156,14 @@ class ModelsTests(Neo4jTestCase):
         self.assertIsNotNone(str(node_model_1))
         self.assertIsNotNone(repr(node_model_1))
 
-        self.assertEquals(node_model_1, node_model_1)
+        self.assertEqual(node_model_1, node_model_1)
         self.assertGreater(node_model_2, node_model_1)
         self.assertLess(node_model_1, node_model_2)
 
         self.assertEqual(node_model_1.handle_id, '101')
         self.assertIn(node_model_1.meta_type, core.META_TYPES)
         self.assertIsInstance(node_model_1.labels, list)
-        self.assertIsInstance(node_model_1.data, dict)
+        self.assertIsNotNone(node_model_1.data)
         self.assertIsInstance(node_model_1.incoming, dict)
         self.assertIsInstance(node_model_1.outgoing, dict)
         self.assertIsInstance(node_model_1.relationships, dict)
@@ -219,9 +219,9 @@ class ModelsTests(Neo4jTestCase):
                 self.assertIsNotNone(repr(relationship_model))
                 self.assertIsNotNone(relationship_model.type)
                 self.assertIsInstance(relationship_model.id, int)
-                self.assertIsInstance(relationship_model.data, dict)
-                self.assertEqual(relationship_model.start, node_model_1.handle_id)
-                self.assertEqual(relationship_model.end, item['node'].handle_id)
+                self.assertIsNotNone(relationship_model.data)
+                self.assertEqual(relationship_model.start['handle_id'], node_model_1.handle_id)
+                self.assertEqual(relationship_model.end['handle_id'], item['node'].handle_id)
 
     def test_get_location_path(self):
         # Model with location
