@@ -313,17 +313,6 @@ class CoreTests(Neo4jTestCase):
         relationship_model = core.get_relationship_model(self.neo4jdb, relationship_id=relationship_id)
         self.assertIsInstance(relationship_model, models.BaseRelationshipModel)
 
-    def test_get_nodes_by_value(self):
-        new_properties = {'test': 'hello world'}
-        core.set_node_properties(self.neo4jdb, handle_id='1', new_properties=new_properties)
-
-        result = core.get_nodes_by_value(self.neo4jdb, value='hello world')
-        self.assertIsNotNone(result)
-        for node in result:
-            self.assertEqual(node.get('test'), 'hello world')
-            return
-        self.assertTrue(False, 'Nothing found')
-
     def test_get_nodes_by_value_and_property(self):
         new_properties = {'test': 'hello world'}
         core.set_node_properties(self.neo4jdb, handle_id='1', new_properties=new_properties)
@@ -331,17 +320,6 @@ class CoreTests(Neo4jTestCase):
         self.assertIsNotNone(result)
         for node in result:
             self.assertEqual(node.get('test'), 'hello world')
-            return
-        self.assertTrue(False, 'Nothing found')
-
-    def test_get_nodes_by_value_list(self):
-        new_properties = {'test': ['hello', 'world']}
-        core.set_node_properties(self.neo4jdb, handle_id='1', new_properties=new_properties)
-
-        result = core.get_nodes_by_value(self.neo4jdb, value=['hello', 'world'])
-        self.assertIsNotNone(result)
-        for node in result:
-            self.assertEqual(node.get('test'), ['hello', 'world'])
             return
         self.assertTrue(False, 'Nothing found')
 

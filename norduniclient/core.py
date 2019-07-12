@@ -342,7 +342,7 @@ def get_node_meta_type(manager, handle_id):
 
 
 # TODO: Try out elasticsearch
-def get_nodes_by_value(manager, value, prop=None, node_type='Node'):
+def get_nodes_by_value(manager, value, prop, node_type='Node'):
     """
     Traverses all nodes or nodes of specified label and compares the property/properties of the node
     with the supplied string.
@@ -357,29 +357,15 @@ def get_nodes_by_value(manager, value, prop=None, node_type='Node'):
     :type node_type: str
     :return: dicts
     """
-    if prop:
-        q = """
-            MATCH (n:{label})
-            USING SCAN n:{label}
-            WHERE n.{prop} = {{value}}
-            RETURN distinct n
-            """.format(label=node_type, prop=prop)
+    q = """
+        MATCH (n:{label})
+        WHERE n.{prop} = {{value}}
+        RETURN distinct n
+        """.format(label=node_type, prop=prop)
 
-        with manager.session as s:
-            for result in s.run(q, {'value': value}):
-                yield result['n']
-    else:
-        q = """
-            MATCH (n:{label})
-            RETURN n
-            """.format(label=node_type)
-        pattern = re.compile(u'{0}'.format(value), re.IGNORECASE)
-        with manager.session as s:
-            for result in s.run(q):
-                for v in result['n'].values():
-                    if pattern.search(text_type(v)):
-                        yield result['n']
-                        break
+    with manager.session as s:
+        for result in s.run(q, {'value': value}):
+            yield result['n']
 
 
 def get_node_by_type(manager, node_type):
