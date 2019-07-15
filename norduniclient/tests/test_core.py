@@ -57,8 +57,8 @@ class CoreTests(Neo4jTestCase):
     def test_create_and_get_relationship(self):
         relationship_id = core._create_relationship(self.neo4jdb, handle_id='1', other_handle_id='2', rel_type='Tests')
         self.assertIsInstance(relationship_id, int)
-        relationship = core.get_relationship(self.neo4jdb, relationship_id=relationship_id)
-        self.assertEqual(relationship.id, relationship_id)
+        relationship = core.get_relationship_bundle(self.neo4jdb, relationship_id=relationship_id)
+        self.assertEqual(relationship['id'], relationship_id)
 
     def test_failing_get_relationship(self):
         self.assertRaises(exceptions.RelationshipNotFound, core.get_relationship, self.neo4jdb, relationship_id=1)
@@ -80,8 +80,8 @@ class CoreTests(Neo4jTestCase):
 
     def test_delete_relationship(self):
         relationship_id = core._create_relationship(self.neo4jdb, handle_id='1', other_handle_id='2', rel_type='Tests')
-        relationship = core.get_relationship(self.neo4jdb, relationship_id=relationship_id)
-        self.assertEqual(relationship.id, relationship_id)
+        relationship = core.get_relationship_bundle(self.neo4jdb, relationship_id=relationship_id)
+        self.assertEqual(relationship['id'], relationship_id)
         core.delete_relationship(self.neo4jdb, relationship_id=relationship_id)
         self.assertRaises(exceptions.RelationshipNotFound, core.get_relationship, self.neo4jdb,
                           relationship_id=relationship_id)
