@@ -165,7 +165,7 @@ def query_to_iterator(manager, query, **kwargs):
             yield d
 
 
-def _node_to_dict(node):
+def neo4j_entity_to_dict(node):
     return {k: v for k, v in node.items()}
 
 
@@ -185,7 +185,7 @@ def create_node(manager, name, meta_type_label, type_label, handle_id):
     :type type_label: str|unicode
     :type handle_id: str|unicode
 
-    :rtype: dict|neo4j.v1.types.Node
+    :rtype: dict
     """
     if meta_type_label not in META_TYPES:
         raise exceptions.MetaLabelNamingError(meta_type_label)
@@ -194,18 +194,16 @@ def create_node(manager, name, meta_type_label, type_label, handle_id):
         RETURN n
         """ % (meta_type_label, type_label)
     with manager.session as s:
-        return _node_to_dict(s.run(q, {'name': name, 'handle_id': handle_id}).single()['n'])
+        return neo4j_entity_to_dict(s.run(q, {'name': name, 'handle_id': handle_id}).single()['n'])
 
 
 def get_node(manager, handle_id):
     """
     :param manager: Manager to handle sessions and transactions
     :param handle_id: Unique id
-    :param raw: Get raw neo4j node
 
     :type manager: norduniclient.contextmanager.Neo4jDBSessionManager
     :type handle_id: str|unicode
-    :type raw: boolean
 
     :rtype: dict|neo4j.v1.types.Node
     """
@@ -214,7 +212,7 @@ def get_node(manager, handle_id):
     with manager.session as s:
         result = s.run(q, {'handle_id': handle_id}).single()
         if result:
-            return _node_to_dict(result['n'])
+            return neo4j_entity_to_dict(result['n'])
     raise exceptions.NodeNotFound(manager, handle_id)
 
 
@@ -235,7 +233,7 @@ def get_node_bundle(manager, handle_id=None, node=None):
                 raise exceptions.NodeNotFound(manager, handle_id)
             node = result['n']
     d = {
-        'data': _node_to_dict(node)
+        'data': neo4j_entity_to_dict(node)
     }
     labels = list(node.labels)
     labels.remove('Node')  # All nodes have this label for indexing
@@ -284,7 +282,7 @@ def get_relationship(manager, relationship_id):
     with manager.session as s:
         record = s.run(q, {'relationship_id': int(relationship_id)}).single()
         if record:
-            return _node_to_dict(record['r'])
+            return neo4j_entity_to_dict(record['r'])
     raise exceptions.RelationshipNotFound(manager, int(relationship_id))
 
 
@@ -311,7 +309,7 @@ def get_relationship_bundle(manager, relationship_id=None):
     return {
         'type': record['r'].type,
         'id': int(relationship_id),
-        'data': _node_to_dict(record['r']),
+        'data': neo4j_entity_to_dict(record['r']),
         'start': record['start'],
         'end': record['end'],
     }
@@ -373,7 +371,7 @@ def get_nodes_by_value(manager, value, prop, node_type='Node'):
 
     with manager.session as s:
         for result in s.run(q, {'value': value}):
-            yield _node_to_dict(result['n'])
+            yield neo4j_entity_to_dict(result['n'])
 
 
 def get_node_by_type(manager, node_type):
@@ -383,7 +381,7 @@ def get_node_by_type(manager, node_type):
         """.format(label=node_type)
     with manager.session as s:
         for result in s.run(q):
-            yield _node_to_dict(result['n'])
+            yield neo4j_entity_to_dict(result['n'])
 
 
 def search_nodes_by_value(manager, value, prop=None, node_type='Node'):
@@ -481,7 +479,7 @@ def get_indexed_node(manager, prop, value, node_type='Node', lookup_func='CONTAI
         """.format(label=node_type, prop=prop, lookup_func=lookup_func)
     with manager.session as s:
         for result in s.run(q, {'value': value}):
-            yield _node_to_dict(result['n'])
+            yield neo4j_entity_to_dict(result['n'])
 
 
 def get_unique_node_by_name(manager, node_name, node_type):
@@ -643,7 +641,7 @@ def set_node_properties(manager, handle_id, new_properties):
         RETURN n
         """
     with manager.session as s:
-        return _node_to_dict(s.run(q, {'handle_id': handle_id, 'props': new_properties}).single()['n'])
+        return neo4j_entity_to_dict(s.run(q, {'handle_id': handle_id, 'props': new_properties}).single()['n'])
 
 
 def set_relationship_properties(manager, relationship_id, new_properties):
