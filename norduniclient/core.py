@@ -310,8 +310,8 @@ def get_relationship_bundle(manager, relationship_id=None):
         'type': record['r'].type,
         'id': int(relationship_id),
         'data': neo4j_entity_to_dict(record['r']),
-        'start': record['start'],
-        'end': record['end'],
+        'start': neo4j_entity_to_dict(record['start']),
+        'end': neo4j_entity_to_dict(record['end']),
     }
 
 
