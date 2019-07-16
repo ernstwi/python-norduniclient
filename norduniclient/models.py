@@ -25,7 +25,7 @@ class BaseRelationshipModel(object):
 
     def __str__(self):
         return u'({start})-[{id}:{type}{data}]->({end}) in database {db}.'.format(
-            start=self.start, type=self.type, id=self.id, data=self.data, end=self.end,
+            start=self.start['handle_id'], type=self.type, id=self.id, data=self.data, end=self.end['handle_id'],
             db=self.manager.uri
         )
 
@@ -41,7 +41,7 @@ class BaseRelationshipModel(object):
     def load(self, relationship_bundle):
         self.id = relationship_bundle.get('id')
         self.type = relationship_bundle.get('type')
-        self.data = relationship_bundle.get('data')
+        self.data = relationship_bundle.get('data', {})
         self.start = relationship_bundle.get('start')
         self.end = relationship_bundle.get('end')
         return self
