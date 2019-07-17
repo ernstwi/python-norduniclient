@@ -530,13 +530,15 @@ class EquipmentModel(PhysicalModel):
         return self._basic_read_query_to_dict(q, port_name=port_name)
 
     def get_dependent_as_types(self):
+        # The + [null] is to handle both dep lists being emtpy since UNWIND gives 0 rows on unwind
         q = """
             MATCH (node:Node {handle_id: {handle_id}})
             OPTIONAL MATCH (node)<-[:Depends_on]-(d)
             WITH node, collect(DISTINCT d) as direct
             OPTIONAL MATCH (node)-[:Has*1..20]->()<-[:Part_of|Depends_on*1..20]-(dep)
             OPTIONAL MATCH (node)-[:Has*1..20]->()<-[:Connected_to]-()-[:Connected_to]->()<-[:Depends_on*1..20]-(cable_dep)
-            WITH direct, collect(DISTINCT dep) + collect(DISTINCT cable_dep) as coll UNWIND coll AS x
+            WITH direct, collect(DISTINCT dep) + collect(DISTINCT cable_dep) + direct as coll
+            UNWIND coll AS x
             WITH direct, collect(DISTINCT x) as deps
             WITH direct, deps, filter(n in deps WHERE n:Service) as services
             WITH direct, deps, services, filter(n in deps WHERE n:Optical_Path) as paths

@@ -61,6 +61,8 @@ class ModelsTests(Neo4jTestCase):
             (host_service1:Node:Logical:Host_Service{name:'Host Service1', handle_id:'43'}),
             (peering_group2:Node:Logical:Peering_Group{name:'Peering Group2', handle_id:'44'}),
             (cable6:Node:Physical:Cable{name:'Cable6', handle_id:'45'}),
+            (service5:Node:Logical:Service{name:'Service5', handle_id:'46'}),
+            (external_equipment1:Node:Physical:External_Equipment{name:'External Equipment1', handle_id:'47'}),
 
             // Create relationships
             (router1)-[:Has]->(port1),
@@ -107,7 +109,8 @@ class ModelsTests(Neo4jTestCase):
             (customer2)-[:Uses]->(service2),
             (customer2)-[:Uses]->(service3),
             (customer3)-[:Uses]->(service3),
-            (host_service1)-[:Depends_on {ip_address:'127.0.0.1',port:'80',protocol:'tcp'}]->(host1)
+            (host_service1)-[:Depends_on {ip_address:'127.0.0.1',port:'80',protocol:'tcp'}]->(host1),
+            (service5)-[:Depends_on]->(external_equipment1)
             """
 
         q2 = """
@@ -319,6 +322,28 @@ class ModelsTests(Neo4jTestCase):
         self.assertEqual(dependent['paths'], [])
         self.assertEqual(len(dependent['services']), 1)
         self.assertEqual(dependent['services'][0]['name'], 'Service3')
+
+    def test_get_dependent_as_types_equipment(self):
+        external1 = core.get_node_model(self.neo4jdb, handle_id='47')
+        # a bit nasty just moving a port
+        external1.set_has('24')  # port4
+        dependents = external1.get_dependent_as_types()
+        self.assertIn('Service5', [n['name'] for n in dependents['direct']])
+        self.assertIn('Optical Link1', [n['name'] for n in dependents['links']])
+        self.assertIn('Optical Link2', [n['name'] for n in dependents['links']])
+        self.assertEqual(dependents['oms'], [])
+        self.assertIn('Optical Path1', [n['name'] for n in dependents['paths']])
+        self.assertIn('Service2', [n['name'] for n in dependents['services']])
+        self.assertIn('Service5', [n['name'] for n in dependents['services']])
+
+    def test_get_dependent_as_types_equipment_only_direct(self):
+        external1 = core.get_node_model(self.neo4jdb, handle_id='47')
+        dependents = external1.get_dependent_as_types()
+        self.assertEqual(dependents['direct'][0]['name'], 'Service5')
+        self.assertEqual(dependents['links'], [])
+        self.assertEqual(dependents['oms'], [])
+        self.assertEqual(dependents['paths'], [])
+        self.assertEqual(dependents['services'][0]['name'], 'Service5')
 
     def test_get_dependencies_as_types(self):
         logical4 = core.get_node_model(self.neo4jdb, handle_id='111')
