@@ -895,3 +895,11 @@ class CustomerModel(RelationModel):
 
 class ProviderModel(RelationModel):
     pass
+
+
+class PatchPanelModel(EquipmentModel):
+    pass
+
+
+class OutletModel(EquipmentModel):
+    pass
