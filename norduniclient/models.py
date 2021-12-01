@@ -277,6 +277,13 @@ class CommonQueries(BaseNodeModel):
             """
         return core.query_to_list(self.manager, q, handle_id=self.handle_id)
 
+    def get_tickets(self):
+        q = """
+            MATCH (n:Node {handle_id: {handle_id}})<-[r:Is_about]-(node)
+            RETURN node
+            """
+        return core.query_to_list(self.manager, q, handle_id=self.handle_id)
+
 
 class LogicalModel(CommonQueries):
 
