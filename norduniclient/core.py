@@ -557,6 +557,8 @@ def create_logical_relationship(manager, logical_handle_id, other_handle_id, rel
     elif rel_type == 'Part_of':
         if other_meta_type == 'Physical':
             return _create_relationship(manager, logical_handle_id, other_handle_id, rel_type)
+    elif rel_type == 'Is_about':
+        return _create_relationship(manager, logical_handle_id, other_handle_id, rel_type)
     raise exceptions.NoRelationshipPossible(logical_handle_id, 'Logical', other_handle_id, other_meta_type, rel_type)
 
 
